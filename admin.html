@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- CSP tightened: removed unsafe-eval, removed Google Translate (not needed in admin) -->
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self';
+             script-src 'self' 'unsafe-inline';
+             style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+             font-src 'self' https://fonts.gstatic.com;
+             img-src 'self' data:;
+             connect-src 'self';
+             frame-src 'none';">
+
+  <title>Admin Dashboard — CareConnect</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+
+  <style>
+    .admin-wrapper { min-height:100vh; background:var(--color-background-alt); display:flex; flex-direction:column; }
+    .admin-header { background:white; border-bottom:1px solid var(--color-border); padding:var(--sp-4) 0; position:sticky; top:0; z-index:100; }
+    .admin-header-inner { display:flex; justify-content:space-between; align-items:center; gap:var(--sp-4); flex-wrap:wrap; }
+    .admin-nav { display:flex; gap:var(--sp-6); }
+    .admin-nav-btn { background:none; border:none; font-size:var(--font-sm); font-weight:600; color:var(--color-foreground-muted); cursor:pointer; padding:var(--sp-2) 0; position:relative; transition:color var(--t-fast); }
+    .admin-nav-btn:hover { color:var(--color-primary); }
+    .admin-nav-btn.active { color:var(--color-primary); }
+    .admin-nav-btn.active::after { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; background:var(--color-primary); }
+    .admin-content { flex:1; padding:var(--sp-10) 0; }
+    .admin-loading-screen { position:fixed; inset:0; background:var(--color-background-alt); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:999; transition:opacity 0.25s ease; }
+    .admin-loading-screen.fading { opacity:0; pointer-events:none; }
+    .spinner { width:48px; height:48px; border:4px solid var(--color-border); border-top-color:var(--color-primary); border-radius:50%; animation:spin 0.8s linear infinite; margin-bottom:var(--sp-4); }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .admin-stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:var(--sp-6); margin-bottom:var(--sp-8); }
+    .admin-stat-card { background:white; border-radius:var(--radius-xl); padding:var(--sp-6); border:1px solid var(--color-border); display:flex; align-items:center; gap:var(--sp-4); box-shadow:var(--shadow-sm); }
+    .admin-stat-icon { width:48px; height:48px; border-radius:var(--radius-lg); background:var(--color-primary-bg); display:flex; align-items:center; justify-content:center; font-size:var(--font-xl); }
+    .admin-stat-val { font-size:var(--font-2xl); font-weight:800; color:var(--color-foreground); line-height:1; }
+    .admin-stat-lbl { font-size:var(--font-xs); color:var(--color-foreground-muted); margin-top:var(--sp-1); }
+    .admin-table-card { background:white; border-radius:var(--radius-xl); border:1px solid var(--color-border); box-shadow:var(--shadow-md); overflow:hidden; margin-bottom:var(--sp-8); display:none; }
+    .admin-table-card.active { display:block; }
+    .admin-table-header { padding:var(--sp-5) var(--sp-6); border-bottom:1px solid var(--color-border); display:flex; justify-content:space-between; align-items:center; background:var(--color-background-alt); }
+    .admin-table-header h2 { font-size:var(--font-lg); margin:0; }
+    .admin-table-scroll { overflow-x:auto; max-width:100%; }
+    .admin-table { width:100%; border-collapse:collapse; text-align:left; font-size:var(--font-sm); }
+    .admin-table th, .admin-table td { padding:var(--sp-4) var(--sp-6); border-bottom:1px solid var(--color-border); }
+    .admin-table th { background:var(--color-background-alt); font-weight:700; color:var(--color-foreground); }
+    .admin-table td { color:var(--color-foreground-muted); white-space:nowrap; }
+    .admin-table tbody tr:hover { background:var(--color-primary-bg); }
+    .empty-state { padding:var(--sp-12) 0 !important; text-align:center; color:var(--color-foreground-subtle); white-space:normal !important; }
+    .empty-state-icon { font-size:3rem; margin-bottom:var(--sp-2); }
+    .admin-error-banner { background:#fef2f2; border:1px solid #fecaca; border-radius:var(--radius-lg); padding:var(--sp-4) var(--sp-5); margin-bottom:var(--sp-6); color:#dc2626; font-weight:500; display:none; }
+    .admin-error-banner.show { display:block; }
+  </style>
+</head>
+<body>
+
+  <div class="admin-loading-screen" id="admin-loading" role="status" aria-live="polite" aria-label="Loading dashboard">
+    <div class="spinner" aria-hidden="true"></div>
+    <p style="font-weight:600;color:var(--color-foreground-muted);">Securing administrative connection…</p>
+  </div>
+
+  <div class="admin-wrapper">
+    <header class="admin-header">
+      <div class="container">
+        <div class="admin-header-inner">
+          <a href="index.html" class="logo" aria-label="CareConnect homepage">
+            <div class="logo-icon" aria-hidden="true">C</div>
+            <span class="logo-text">Care<span class="accent">Connect</span>
+              <small style="font-size:var(--font-xs);background:var(--color-primary);color:white;padding:2px 6px;border-radius:var(--radius-sm);margin-left:var(--sp-1);">ADMIN</small>
+            </span>
+          </a>
+          <nav class="admin-nav" role="tablist" aria-label="Dashboard collections" id="admin-tab-nav">
+            <button class="admin-nav-btn active" role="tab" id="tab-bookings"
+                    aria-selected="true" aria-controls="panel-bookings" data-panel="bookings">Bookings</button>
+            <button class="admin-nav-btn" role="tab" id="tab-callbacks"
+                    aria-selected="false" aria-controls="panel-callbacks" data-panel="callbacks">Callbacks</button>
+            <button class="admin-nav-btn" role="tab" id="tab-applications"
+                    aria-selected="false" aria-controls="panel-applications" data-panel="applications">Nurse Applications</button>
+          </nav>
+          <button class="btn btn-secondary btn-sm" id="logout-btn">Log Out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="admin-content" id="main-content">
+      <div class="container">
+        <div class="admin-error-banner" id="admin-error-banner" role="alert"></div>
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <div class="admin-stat-icon" aria-hidden="true">📅</div>
+            <div><div class="admin-stat-val" id="stat-bookings-count">0</div><div class="admin-stat-lbl">Direct Bookings</div></div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="admin-stat-icon" aria-hidden="true">📞</div>
+            <div><div class="admin-stat-val" id="stat-callbacks-count">0</div><div class="admin-stat-lbl">Callback Inquiries</div></div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="admin-stat-icon" aria-hidden="true">👩‍⚕️</div>
+            <div><div class="admin-stat-val" id="stat-applications-count">0</div><div class="admin-stat-lbl">Caregiver Applications</div></div>
+          </div>
+        </div>
+
+        <section id="panel-bookings" class="admin-table-card active" role="tabpanel" aria-labelledby="tab-bookings">
+          <div class="admin-table-header">
+            <h2>Patient Bookings Log</h2>
+            <button class="btn btn-primary refresh-btn" style="padding:var(--sp-2) var(--sp-4);">Refresh Data</button>
+          </div>
+          <div class="admin-table-scroll">
+            <table class="admin-table">
+              <thead><tr><th>Timestamp</th><th>Patient Name</th><th>Care Type</th><th>Service Requested</th><th>Location</th><th>Preferred Date &amp; Time</th><th>Notes</th></tr></thead>
+              <tbody id="bookings-table-body"><tr><td colspan="7" class="empty-state"><div class="empty-state-icon">📥</div>No bookings recorded.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="panel-callbacks" class="admin-table-card" role="tabpanel" aria-labelledby="tab-callbacks">
+          <div class="admin-table-header">
+            <h2>Quick Callback Inquiry Log</h2>
+            <button class="btn btn-primary refresh-btn" style="padding:var(--sp-2) var(--sp-4);">Refresh Data</button>
+          </div>
+          <div class="admin-table-scroll">
+            <table class="admin-table">
+              <thead><tr><th>Timestamp</th><th>Inquirer Name</th><th>Phone Number</th><th>Preferred Time to Call</th></tr></thead>
+              <tbody id="callbacks-table-body"><tr><td colspan="4" class="empty-state"><div class="empty-state-icon">📥</div>No callback requests recorded.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="panel-applications" class="admin-table-card" role="tabpanel" aria-labelledby="tab-applications">
+          <div class="admin-table-header">
+            <h2>Caregiver Onboarding Applications Log</h2>
+            <button class="btn btn-primary refresh-btn" style="padding:var(--sp-2) var(--sp-4);">Refresh Data</button>
+          </div>
+          <div class="admin-table-scroll">
+            <table class="admin-table">
+              <thead><tr><th>Timestamp</th><th>Applicant Name</th><th>Contact Email</th><th>Phone Number</th><th>INC / State Reg</th><th>Exp Level</th><th>Speciality</th><th>Message / Notes</th></tr></thead>
+              <tbody id="applications-table-body"><tr><td colspan="8" class="empty-state"><div class="empty-state-icon">📥</div>No applications recorded.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* Auth guard — synchronous, before DOMContentLoaded */
+    var token = sessionStorage.getItem('adminToken');
+    if (!token) {
+      window.location.replace('/login?error=unauthorized');
+      throw new Error('No token — redirecting.');
+    }
+
+    /* Helpers */
+    function esc(val) {
+      if (val === null || val === undefined || val === '') return '—';
+      return String(val);
+    }
+
+    function formatDate(isoStr) {
+      if (!isoStr) return '—';
+      var d = new Date(isoStr);
+      if (isNaN(d.getTime())) return esc(isoStr);
+      return d.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})
+             + ' ' + d.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'});
+    }
+
+    function td(text) {
+      var c = document.createElement('td');
+      c.textContent = esc(text);
+      return c;
+    }
+
+    function emptyRow(cols, msg) {
+      var row = document.createElement('tr');
+      var cell = document.createElement('td');
+      cell.colSpan = cols;
+      cell.className = 'empty-state';
+      var icon = document.createElement('div');
+      icon.className = 'empty-state-icon';
+      icon.textContent = '📥';
+      cell.appendChild(icon);
+      cell.appendChild(document.createTextNode(msg));
+      row.appendChild(cell);
+      return row;
+    }
+
+    /* Loading screen */
+    var loader = document.getElementById('admin-loading');
+    var _hideTimer = null;
+    function showLoader() {
+      if (!loader) return;
+      clearTimeout(_hideTimer);
+      loader.classList.remove('fading');
+      loader.style.display = 'flex';
+    }
+    function hideLoader() {
+      if (!loader) return;
+      loader.classList.add('fading');
+      _hideTimer = setTimeout(function () { loader.style.display = 'none'; }, 300);
+    }
+
+    /* Error banner */
+    var errorBanner = document.getElementById('admin-error-banner');
+    function showError(msg) { if (errorBanner) { errorBanner.textContent = '⚠️ ' + msg; errorBanner.classList.add('show'); } }
+    function clearError() { if (errorBanner) { errorBanner.textContent = ''; errorBanner.classList.remove('show'); } }
+
+    /* Tab switcher */
+    function switchTab(panelName) {
+      document.querySelectorAll('.admin-nav-btn').forEach(function (btn) {
+        var active = btn.dataset.panel === panelName;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('.admin-table-card').forEach(function (p) { p.classList.remove('active'); });
+      var target = document.getElementById('panel-' + panelName);
+      if (target) target.classList.add('active');
+    }
+
+    /* Render — DOM API only, zero innerHTML from user data */
+    function renderBookings(list) {
+      var tbody = document.getElementById('bookings-table-body');
+      if (!tbody) return;
+      while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+      if (!list || !list.length) { tbody.appendChild(emptyRow(7, 'No bookings recorded.')); return; }
+      list.forEach(function (item) {
+        var row = document.createElement('tr');
+        var ts = document.createElement('td');
+        var s = document.createElement('strong'); s.textContent = formatDate(item.Timestamp); ts.appendChild(s);
+        row.appendChild(ts);
+        row.appendChild(td(item.Name));
+        var typeCell = document.createElement('td');
+        var tag = document.createElement('span'); tag.className = 'section-tag'; tag.style.cssText = 'margin-bottom:0;font-size:var(--font-xs);'; tag.textContent = esc(item.CareType); typeCell.appendChild(tag);
+        row.appendChild(typeCell);
+        row.appendChild(td(item.Service));
+        row.appendChild(td(item.Location));
+        var dtc = document.createElement('td'); dtc.textContent = '📅 ' + esc(item.Date) + '  🕐 ' + esc(item.Time); row.appendChild(dtc);
+        var nc = document.createElement('td'); var nd = document.createElement('div'); nd.style.cssText = 'max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'; nd.title = esc(item.Notes); nd.textContent = esc(item.Notes); nc.appendChild(nd); row.appendChild(nc);
+        tbody.appendChild(row);
+      });
+    }
+
+    function renderCallbacks(list) {
+      var tbody = document.getElementById('callbacks-table-body');
+      if (!tbody) return;
+      while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+      if (!list || !list.length) { tbody.appendChild(emptyRow(4, 'No callback requests recorded.')); return; }
+      list.forEach(function (item) {
+        var row = document.createElement('tr');
+        var ts = document.createElement('td'); var s = document.createElement('strong'); s.textContent = formatDate(item.Timestamp); ts.appendChild(s); row.appendChild(ts);
+        row.appendChild(td(item.Name));
+        var pc = document.createElement('td'); var pl = document.createElement('a'); pl.href = 'tel:' + esc(item.Phone).replace(/\s/g,''); pl.textContent = '📞 ' + esc(item.Phone); pc.appendChild(pl); row.appendChild(pc);
+        row.appendChild(td(item.PreferredTime));
+        tbody.appendChild(row);
+      });
+    }
+
+    function renderApplications(list) {
+      var tbody = document.getElementById('applications-table-body');
+      if (!tbody) return;
+      while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+      if (!list || !list.length) { tbody.appendChild(emptyRow(8, 'No applications recorded.')); return; }
+      list.forEach(function (item) {
+        var row = document.createElement('tr');
+        var ts = document.createElement('td'); var s = document.createElement('strong'); s.textContent = formatDate(item.Timestamp); ts.appendChild(s); row.appendChild(ts);
+        row.appendChild(td((item.FirstName || '') + ' ' + (item.LastName || '')));
+        var ec = document.createElement('td'); var el = document.createElement('a'); el.href = 'mailto:' + esc(item.Email); el.textContent = '✉️ ' + esc(item.Email); ec.appendChild(el); row.appendChild(ec);
+        row.appendChild(td('📞 ' + esc(item.Phone)));
+        var rc = document.createElement('td'); var code = document.createElement('code'); code.textContent = esc(item.MNC_Registration); rc.appendChild(code); row.appendChild(rc);
+        row.appendChild(td(esc(item.Experience) + ' yrs'));
+        row.appendChild(td(item.Speciality));
+        var mc = document.createElement('td'); var md = document.createElement('div'); md.style.cssText = 'max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'; md.title = esc(item.Message); md.textContent = esc(item.Message); mc.appendChild(md); row.appendChild(mc);
+        tbody.appendChild(row);
+      });
+    }
+
+    /* Data load */
+    function loadDashboardData() {
+      clearError();
+      showLoader();
+      var t = sessionStorage.getItem('adminToken');
+      fetch('/api/admin-verify', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' }
+      })
+      .then(function (res) {
+        if (res.status === 401) { sessionStorage.removeItem('adminToken'); window.location.replace('/login?error=expired'); throw new Error('expired'); }
+        if (!res.ok) throw new Error('Server error ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        var bc = document.getElementById('stat-bookings-count');
+        var cc = document.getElementById('stat-callbacks-count');
+        var ac = document.getElementById('stat-applications-count');
+        if (bc) bc.textContent = (data.bookings     || []).length;
+        if (cc) cc.textContent = (data.callbacks    || []).length;
+        if (ac) ac.textContent = (data.applications || []).length;
+        renderBookings(data.bookings     || []);
+        renderCallbacks(data.callbacks   || []);
+        renderApplications(data.applications || []);
+      })
+      .catch(function (err) { if (err.message !== 'expired') showError(err.message || 'Failed to load data.'); })
+      .finally(function () { hideLoader(); });
+    }
+
+    /* Wire up on DOM ready */
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.admin-nav-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () { switchTab(btn.dataset.panel); });
+      });
+      document.querySelectorAll('.refresh-btn').forEach(function (btn) {
+        btn.addEventListener('click', loadDashboardData);
+      });
+      var logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) logoutBtn.addEventListener('click', function () {
+        sessionStorage.removeItem('adminToken');
+        window.location.replace('/login');
+      });
+      loadDashboardData();
+    });
+
+  })();
+  </script>
+
+</body>
+</html>
