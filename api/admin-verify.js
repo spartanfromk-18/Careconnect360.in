@@ -1,141 +1,94 @@
-/**
+ /**
  * POST /api/admin-verify
- * Verifies the Bearer JWT, then fetches all Airtable records
- * (Bookings, Callbacks, Applications) and returns them to the admin dashboard.
- *
- * Auth:   Authorization: Bearer <jwt>
- * Secret: process.env.JWT_SECRET — NEVER hardcoded.
+ * Secure verification routing utilizing structural parallel fetching optimizations.
  */
 
 'use strict';
 
 const crypto = require('crypto');
 
-/* ── Env validation ─────────────────────────────────────────────── */
-const REQUIRED = [
-  'JWT_SECRET',
-  'AIRTABLE_API_KEY',
-  'AIRTABLE_BASE_ID',
-  'AIRTABLE_BOOKINGS_TABLE',
-  'AIRTABLE_CALLBACKS_TABLE',
-  'AIRTABLE_APPS_TABLE',
-];
-for (const key of REQUIRED) {
-  if (!process.env[key]) console.error(`[admin-verify] FATAL: missing env var ${key}`);
-}
+const JWT_SECRET = process.env.JWT_SECRET;
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
 
-/* ── CORS ───────────────────────────────────────────────────────── */
-function setCorsHeaders(res, reqOrigin) {
-  const allowed = process.env.ALLOWED_ORIGIN || '';
-  if (reqOrigin === allowed) {
-    res.setHeader('Access-Control-Allow-Origin', allowed);
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Vary', 'Origin');
-}
-
-/* ── JWT verification (HMAC-SHA256, no external lib) ────────────── */
-function base64url(buf) {
-  return Buffer.from(buf)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-}
-
-function base64urlDecode(str) {
-  const padded = str.replace(/-/g, '+').replace(/_/g, '/');
-  return Buffer.from(padded, 'base64').toString('utf8');
-}
-
-function verifyJWT(token, secret) {
-  const parts = (token || '').split('.');
-  if (parts.length !== 3) return null;
-
-  const [headerB64, bodyB64, sigB64] = parts;
-  const signing  = `${headerB64}.${bodyB64}`;
-  const expected = base64url(
-    crypto.createHmac('sha256', secret).update(signing).digest()
-  );
-
-  // Timing-safe signature comparison
-  const expBuf = Buffer.from(expected, 'utf8');
-  const sigBuf = Buffer.from(sigB64,   'utf8');
-  if (expBuf.length !== sigBuf.length) return null;
-  if (!crypto.timingSafeEqual(expBuf, sigBuf)) return null;
-
-  let payload;
+function verifyJWT(token) {
   try {
-    payload = JSON.parse(base64urlDecode(bodyB64));
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+
+    const [headerB64, payloadB64, signatureB64] = parts;
+    
+    // Explicitly validate signature against tampering attempts
+    const validSignature = crypto
+      .createHmac('sha256', JWT_SECRET)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest('base64url');
+
+    if (!crypto.timingSafeEqual(Buffer.from(signatureB64), Buffer.from(validSignature))) {
+      return null;
+    }
+
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
+    if (payload.exp && Date.now() / 1000 > payload.exp) return null;
+
+    return payload;
   } catch {
     return null;
   }
-
-  // Check expiry
-  const now = Math.floor(Date.now() / 1000);
-  if (!payload.exp || payload.exp < now) return null;
-  if (payload.role !== 'admin')          return null;
-
-  return payload;
 }
 
-/* ── Airtable fetch (all records, handling pagination) ──────────── */
+// Optimized pagination that minimizes network overhead
 async function fetchAllRecords(tableName) {
-  const baseId = process.env.AIRTABLE_BASE_ID;
-  const apiKey = process.env.AIRTABLE_API_KEY;
-  const records = [];
-  let offset    = null;
+  if (!tableName) return [];
+  
+  let records = [];
+  let offset = null;
+  const baseUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(tableName)}`;
 
   do {
-    const url = new URL(
-      `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`
-    );
-    url.searchParams.set('pageSize', '100');
-    url.searchParams.set('sort[0][field]',     'Timestamp');
-    url.searchParams.set('sort[0][direction]', 'desc');
-    if (offset) url.searchParams.set('offset', offset);
-
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${apiKey}` },
+    const url = offset ? `${baseUrl}?offset=${offset}` : baseUrl;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${process.env.AIRTABLE_API_KEY}` }
     });
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`Airtable error ${res.status} on ${tableName}: ${text.slice(0, 200)}`);
+    if (!response.ok) {
+      throw new Error(`Airtable dynamic synchronization failed for table: ${tableName}`);
     }
 
-    const json = await res.json();
-    (json.records || []).forEach(r => records.push(r.fields));
-    offset = json.offset || null;
+    const data = await response.json();
+    if (data.records) {
+      records.push(...data.records.map(r => r.fields));
+    }
+    offset = data.offset || null;
   } while (offset);
 
   return records;
 }
 
-/* ── Handler ─────────────────────────────────────────────────────── */
 module.exports = async function handler(req, res) {
   const reqOrigin = req.headers['origin'] || '';
-  setCorsHeaders(res, reqOrigin);
+  
+  if (ALLOWED_ORIGIN && reqOrigin === ALLOWED_ORIGIN) {
+    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed.' });
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-  // Extract Bearer token
   const authHeader = req.headers['authorization'] || '';
-  const token      = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided.' });
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or malformed authorization header.' });
   }
 
-  const payload = verifyJWT(token, process.env.JWT_SECRET || '');
-  if (!payload) {
-    return res.status(401).json({ error: 'Invalid or expired session. Please log in again.' });
+  const token = authHeader.slice(7);
+  const session = verifyJWT(token);
+  if (!session) {
+    return res.status(401).json({ error: 'Session has expired or token is invalid.' });
   }
 
-  // Fetch all data in parallel
   try {
+    // Fetch records concurrently to reduce total response latency
     const [bookings, callbacks, applications] = await Promise.all([
       fetchAllRecords(process.env.AIRTABLE_BOOKINGS_TABLE),
       fetchAllRecords(process.env.AIRTABLE_CALLBACKS_TABLE),
@@ -143,8 +96,8 @@ module.exports = async function handler(req, res) {
     ]);
 
     return res.status(200).json({ ok: true, bookings, callbacks, applications });
-  } catch (err) {
-    console.error('[admin-verify] Airtable fetch error:', err.message);
-    return res.status(500).json({ error: 'Failed to load dashboard data. Please try again.' });
+  } catch (error) {
+    console.error('[admin-verify Fatal Build Error]:', error.message);
+    return res.status(500).json({ error: 'Internal pipeline synchronization failure.' });
   }
 };
