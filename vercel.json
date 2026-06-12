@@ -1,15 +1,24 @@
-{
+ {
   "cleanUrls": true,
   "trailingSlash": false,
   "functions": {
     "api/*.js": { "maxDuration": 15 }
   },
   "routes": [
-    { "src": "/api/submit",       "dest": "/api/submit.js" },
-    { "src": "/api/admin-login",  "dest": "/api/admin-login.js" },
-    { "src": "/api/admin-verify", "dest": "/api/admin-verify.js" }
+    { "src": "/api/submit",           "dest": "/api/submit.js" },
+    { "src": "/api/admin-login",      "dest": "/api/admin-login.js" },
+    { "src": "/api/admin-verify",     "dest": "/api/admin-verify.js" },
+    { "src": "/api/create-order",     "dest": "/api/create-order.js" },
+    { "src": "/api/webhook-razorpay", "dest": "/api/webhook-razorpay.js" }
   ],
   "headers": [
+    {
+      "source": "/api/webhook-razorpay",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, private" },
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
     {
       "source": "/admin",
       "headers": [

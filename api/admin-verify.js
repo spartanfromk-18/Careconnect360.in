@@ -1,103 +1,112 @@
  /**
  * POST /api/admin-verify
- * Secure verification routing utilizing structural parallel fetching optimizations.
+ * Secure verification routing with standardized JWT and safe pagination.
  */
 
-'use strict';
+import jwt from 'jsonwebtoken';
 
-const crypto = require('crypto');
-
+/* ── Environment validation (Fail Fast) ──────────────────────── */
 const JWT_SECRET = process.env.JWT_SECRET;
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
 
-function verifyJWT(token) {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-
-    const [headerB64, payloadB64, signatureB64] = parts;
-    
-    // Explicitly validate signature against tampering attempts
-    const validSignature = crypto
-      .createHmac('sha256', JWT_SECRET)
-      .update(`${headerB64}.${payloadB64}`)
-      .digest('base64url');
-
-    if (!crypto.timingSafeEqual(Buffer.from(signatureB64), Buffer.from(validSignature))) {
-      return null;
-    }
-
-    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
-    if (payload.exp && Date.now() / 1000 > payload.exp) return null;
-
-    return payload;
-  } catch {
-    return null;
-  }
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error('CRITICAL: JWT_SECRET must be defined and contain at least 32 characters.');
+}
+if (!ALLOWED_ORIGIN) {
+  throw new Error('CRITICAL: ALLOWED_ORIGIN must be explicitly defined.');
 }
 
-// Optimized pagination that minimizes network overhead
-async function fetchAllRecords(tableName) {
-  if (!tableName) return [];
-  
-  let records = [];
-  let offset = null;
-  const baseUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(tableName)}`;
-
-  do {
-    const url = offset ? `${baseUrl}?offset=${offset}` : baseUrl;
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${process.env.AIRTABLE_API_KEY}` }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Airtable dynamic synchronization failed for table: ${tableName}`);
-    }
-
-    const data = await response.json();
-    if (data.records) {
-      records.push(...data.records.map(r => r.fields));
-    }
-    offset = data.offset || null;
-  } while (offset);
-
-  return records;
-}
-
-module.exports = async function handler(req, res) {
-  const reqOrigin = req.headers['origin'] || '';
-  
-  if (ALLOWED_ORIGIN && reqOrigin === ALLOWED_ORIGIN) {
+/* ── CORS helper ──────────────────────────────────────────────── */
+function setCorsHeaders(res, reqOrigin) {
+  if (reqOrigin === ALLOWED_ORIGIN) {
     res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Vary', 'Origin');
+}
+
+/* ── Safe Airtable Fetch with Pagination ─────────────────────── */
+async function fetchRecords(tableName, limit = 50, offsetToken = null) {
+  if (!tableName) return { records: [], nextOffset: null };
+  
+  const baseUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(tableName)}`;
+  const url = offsetToken 
+    ? `${baseUrl}?pageSize=${limit}&offset=${offsetToken}` 
+    : `${baseUrl}?pageSize=${limit}`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${process.env.AIRTABLE_API_KEY}` }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Airtable fetch failed for ${tableName}`);
+  }
+
+  const data = await response.json();
+  return {
+    records: data.records ? data.records.map(r => ({ id: r.id, ...r.fields })) : [],
+    nextOffset: data.offset || null 
+  };
+}
+
+/* ── Main handler ─────────────────────────────────────────────── */
+export default async function handler(req, res) {
+  const reqOrigin = req.headers['origin'] || '';
+  setCorsHeaders(res, reqOrigin);
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
+  // 1. Authentication (Standardized JWT)
   const authHeader = req.headers['authorization'] || '';
   if (!authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Missing or malformed authorization header.' });
   }
 
   const token = authHeader.slice(7);
-  const session = verifyJWT(token);
-  if (!session) {
+  try {
+    // Verify using standard library (checks signature, expiry, issuer automatically)
+    const session = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'], issuer: 'careconnect360' });
+    if (session.role !== 'admin') {
+      return res.status(403).json({ error: 'Insufficient privileges.' });
+    }
+  } catch (err) {
     return res.status(401).json({ error: 'Session has expired or token is invalid.' });
   }
 
+  // 2. Parse Pagination Parameters
+  let body = {};
   try {
-    // Fetch records concurrently to reduce total response latency
-    const [bookings, callbacks, applications] = await Promise.all([
-      fetchAllRecords(process.env.AIRTABLE_BOOKINGS_TABLE),
-      fetchAllRecords(process.env.AIRTABLE_CALLBACKS_TABLE),
-      fetchAllRecords(process.env.AIRTABLE_APPS_TABLE),
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  } catch {
+    return res.status(400).json({ error: 'Malformed request payload.' });
+  }
+
+  const limit = Math.min(100, Math.max(1, parseInt(body.limit) || 50)); // Max 100 records per page
+  const offsetToken = body.offset || null; // Frontend passes the token from previous response
+
+  try {
+    // 3. Fetch paginated records concurrently
+    const [bookingsData, callbacksData, applicationsData] = await Promise.all([
+      fetchRecords(process.env.AIRTABLE_BOOKINGS_TABLE, limit, offsetToken),
+      fetchRecords(process.env.AIRTABLE_CALLBACKS_TABLE, limit, offsetToken),
+      fetchRecords(process.env.AIRTABLE_APPS_TABLE, limit, offsetToken),
     ]);
 
-    return res.status(200).json({ ok: true, bookings, callbacks, applications });
+    return res.status(200).json({ 
+      ok: true, 
+      bookings: bookingsData.records,
+      callbacks: callbacksData.records,
+      applications: applicationsData.records,
+      pagination: {
+        limit,
+        nextOffset: bookingsData.nextOffset // Token for the next page
+      }
+    });
   } catch (error) {
-    console.error('[admin-verify Fatal Build Error]:', error.message);
-    return res.status(500).json({ error: 'Internal pipeline synchronization failure.' });
+    console.error('[admin-verify] Handler error:', error.message);
+    // Generic error message to prevent leaking internal architecture details
+    return res.status(500).json({ error: 'Internal server error.' }); 
   }
-};
+}
