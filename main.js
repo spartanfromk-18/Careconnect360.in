@@ -216,6 +216,106 @@
   /* ──────────────────────────────────────────
      BOOKING FORM
   ────────────────────────────────────────── */
+    /* ──────────────────────────────────────────
+     ENTERPRISE TOAST SYSTEM (UPGRADE 1)
+  ────────────────────────────────────────── */
+  var Toast = {
+    show: function(title, message, type, duration) {
+      type = type || 'success';
+      duration = duration || 5000;
+      var container = document.getElementById('toast-container');
+      if (!container) return; // Fallback if container missing
+      var icons = { success: '✅', error: '❌', info: 'ℹ️' };
+      var toast = document.createElement('div');
+      toast.className = 'toast ' + type;
+      toast.innerHTML = '<div class="toast-icon">' + (icons[type] || '🔔') + '</div>' +
+                        '<div class="toast-content"><div class="toast-title">' + title + '</div>' +
+                        '<div class="toast-message">' + message + '</div></div>';
+      container.appendChild(toast);
+      requestAnimationFrame(function() { toast.classList.add('show'); });
+      setTimeout(function() {
+        toast.classList.remove('show');
+        setTimeout(function() { toast.remove(); }, 400);
+      }, duration);
+    }
+  };
+
+  /* ──────────────────────────────────────────
+     RAZORPAY CHECKOUT INTEGRATION (UPGRADE 2)
+  ────────────────────────────────────────── */
+  function initiateRazorpayCheckout(form) {
+    var btn = form.querySelector('[type="submit"]');
+    if (btn) { btn.classList.add('loading'); btn.disabled = true; }
+
+    // 1. Collect form data using your existing sanitize function
+    var formData = new FormData(form);
+    var bookingData = { type: 'booking' };
+    formData.forEach(function(val, key) { bookingData[key] = sanitize(val); });
+
+    // 2. Determine Amount 
+    // (Defaulting to 500 INR for booking fee. Change this logic based on your pricing)
+    var amount = 500; 
+    var receiptId = 'booking_' + Date.now();
+
+    Toast.show('Initializing', 'Securing payment gateway...', 'info', 2000);
+
+    // 3. Create Order via Backend
+    fetch('/api/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        amount: amount, 
+        receiptId: receiptId,
+        customer: { name: bookingData.name, phone: bookingData.phone || '' }
+      })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(orderData) {
+      if (!orderData.ok) throw new Error(orderData.error || 'Failed to create order');
+
+      // 4. Configure Razorpay Popup
+      var options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "CareConnect 360",
+        description: "Professional Nursing Care Booking",
+        image: "/favicon.svg",
+        order_id: orderData.orderId,
+        handler: function (response) {
+          // 5. Payment Success! Now submit the form to Airtable
+          Toast.show('Payment Successful', 'Verifying your booking...', 'success');
+          bookingData.payment_id = response.razorpay_payment_id;
+          bookingData.payment_status = 'Paid';
+          
+          // Use your existing submitForm to save to Airtable & send email
+          submitForm(form, bookingData); 
+        },
+        prefill: { name: bookingData.name, contact: bookingData.phone || '' },
+        notes: { booking_ref: receiptId, service: bookingData.service || '' },
+        theme: { color: "#0056b3" }, // Your brand color
+        modal: {
+          ondismiss: function() {
+            Toast.show('Payment Cancelled', 'You can complete your booking anytime.', 'info');
+            if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
+          }
+        }
+      };
+
+      var rzp = new Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        Toast.show('Payment Failed', response.error.description || 'Please try again.', 'error');
+        if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
+      });
+      
+      rzp.open(); // Open the popup
+    })
+    .catch(function(error) {
+      Toast.show('Error', error.message || 'Could not initialize payment.', 'error');
+      if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
+    });
+  }
+
   function initBookingForm() {
     var form = document.getElementById('booking-form');
     if (!form) return;
@@ -236,7 +336,7 @@
         if (firstErr) firstErr.focus();
         return;
       }
-      submitForm(form, { type: 'booking' });
+       initiateRazorpayCheckout(form);
     });
   }
 

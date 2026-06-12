@@ -1,26 +1,39 @@
  /**
  * POST /api/admin-login
- * Hardened, zero-dependency serverless authentication gateway.
+ * Enterprise-grade authentication using Bcrypt and Upstash Rate Limiting.
  */
 
-'use strict';
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs'; // <-- NEW: Bcrypt for password hashing
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 
-const crypto = require('crypto');
-
-// Enforce strict runtime constraints on configuration variables
+/* ── Environment validation ──────────────────────────────────── */
 const JWT_SECRET = process.env.JWT_SECRET;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH; // <-- Renamed for clarity
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
 
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
-  throw new Error('CRITICAL: JWT_SECRET must be defined and contain at least 32 characters.');
+  throw new Error('CRITICAL: JWT_SECRET must be at least 32 characters.');
 }
-if (!ADMIN_PASSWORD) {
-  throw new Error('CRITICAL: ADMIN_PASSWORD must be explicitly defined.');
+if (!ADMIN_PASSWORD_HASH) {
+  throw new Error('CRITICAL: ADMIN_PASSWORD_HASH must be defined.');
 }
 
+/* ── Rate limiter ────────────────────────────────────────────── */
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
+
+const loginLimiter = new Ratelimit({
+  redis: redis,
+  limiter: Ratelimit.slidingWindow(5, "5 m"),
+});
+
+/* ── CORS helper ─────────────────────────────────────────────── */
 function setCorsHeaders(res, reqOrigin) {
-  // Prevent empty origin or missing environment configuration bypasses
   if (ALLOWED_ORIGIN && reqOrigin === ALLOWED_ORIGIN) {
     res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   }
@@ -29,44 +42,51 @@ function setCorsHeaders(res, reqOrigin) {
   res.setHeader('Vary', 'Origin');
 }
 
-function safeCompare(a, b) {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) {
-    // Run a dummy comparison to neutralize timing side-channels
-    crypto.timingSafeEqual(bufA, bufA);
-    return false;
-  }
-  return crypto.timingSafeEqual(bufA, bufB);
-}
-
-module.exports = async function handler(req, res) {
+/* ── Main handler ────────────────────────────────────────────── */
+export default async function handler(req, res) {
   const reqOrigin = req.headers['origin'] || '';
   setCorsHeaders(res, reqOrigin);
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-  // Leverage Vercel's native pre-parsed body context securely
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  // 1. Rate Limiting
+  const rawIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+  const ipKey = crypto.createHash('sha256').update(rawIp).digest('hex').slice(0, 16);
+  
+  const { success } = await loginLimiter.limit(ipKey);
+  if (!success) {
+    return res.status(429).json({ error: 'Too many login attempts. Please wait 5 minutes.' });
+  }
+
+  // 2. Parse Body
+  let body;
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  } catch {
+    return res.status(400).json({ error: 'Malformed request payload.' });
+  }
+
   if (!body || typeof body.password !== 'string') {
     return res.status(400).json({ error: 'Malformed request payload.' });
   }
 
+  // 3. Bcrypt Verification (The Secure Way)
   const password = body.password.trim();
-  if (!safeCompare(password, ADMIN_PASSWORD)) {
+  
+  // bcrypt.compare automatically handles the salt and timing-safe comparison!
+  const isMatch = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+
+  if (!isMatch) {
     return res.status(401).json({ error: 'Authentication failed. Incorrect credentials.' });
   }
 
-  // Generate highly secure tokens with standard HMAC-SHA256 signatures
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const exp = Math.floor(Date.now() / 1000) + (12 * 60 * 60); // 12-hour expiration window
-  const payload = Buffer.from(JSON.stringify({ role: 'admin', exp })).toString('base64url');
-  
-  const signature = crypto
-    .createHmac('sha256', JWT_SECRET)
-    .update(`${header}.${payload}`)
-    .digest('base64url');
+  // 4. Generate JWT
+  const token = jwt.sign(
+    { role: 'admin' },
+    JWT_SECRET,
+    { expiresIn: '12h', algorithm: 'HS256', issuer: 'careconnect360' }
+  );
 
-  return res.status(200).json({ ok: true, token: `${header}.${payload}.${signature}` });
-};
+  return res.status(200).json({ ok: true, token });
+}
