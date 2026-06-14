@@ -13,6 +13,27 @@
   
   <!-- Razorpay SDK -->
   <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+
+  <!-- Sentry Error Tracking -->
+<script
+  src="https://js-de.sentry-cdn.com/8c95014606a2fe163620b886475ee784.min.js"
+  crossorigin="anonymous"
+></script>
+<script>
+  Sentry.init({
+    dsn: "https://8c95014606a2fe163620b886475ee784@o4511563071750144.ingest.de.sentry.io/4511563091542096",
+    environment: "production",
+    tracesSampleRate: 0.1,
+    beforeSend(event) {
+      // Don't send errors from localhost/Codespaces
+      if (window.location.hostname === 'localhost' || 
+          window.location.hostname.includes('github.dev')) {
+        return null;
+      }
+      return event;
+    }
+  });
+</script>
   
   <style>
     /* ═══════════════════════════════════════════════════════════════
