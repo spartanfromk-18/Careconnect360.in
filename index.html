@@ -1,0 +1,3247 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CareConnect360 — Premium, verified at-home nursing and healthcare services across India. Book qualified nurses within 4 hours.">
+  <title>CareConnect360 — Premium Home Care & Nursing Services</title>
+  
+  <!-- Preload critical fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Razorpay SDK -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
+  
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       DESIGN SYSTEM — TOKENS
+       Premium Healthcare Aesthetic: Apple × Stripe × Google Health
+       ═══════════════════════════════════════════════════════════════ */
+    :root {
+      /* Brand Colors */
+      --navy: #0D1B2A;
+      --navy-mid: #162336;
+      --navy-light: #1F2F44;
+      --teal: #1A8A7B;
+      --teal-light: #22A898;
+      --teal-dark: #146B60;
+      --teal-bg: #E8F5F2;
+      --teal-dim: #C5E8E2;
+      --gold: #D4A84B;
+      --gold-light: #F0D080;
+      --gold-dark: #B8923F;
+      --cream: #F7F5F0;
+      --cream-dark: #EDE9E0;
+      --white: #FFFFFF;
+      --black: #000000;
+      
+      /* Text Colors */
+      --text-dark: #0D1B2A;
+      --text-mid: #2D3748;
+      --text-soft: #4A5568;
+      --text-muted: #718096;
+      --text-light: #A0AEC0;
+      
+      /* Borders & Surfaces */
+      --border: #E2E8F0;
+      --border-light: #EDF2F7;
+      --border-teal: #C5E8E2;
+      
+      /* Glassmorphism */
+      --glass-bg: rgba(255, 255, 255, 0.72);
+      --glass-bg-dark: rgba(13, 27, 42, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.24);
+      --glass-border-dark: rgba(255, 255, 255, 0.08);
+      
+      /* Spacing (8pt system) */
+      --sp-1: 8px;
+      --sp-2: 16px;
+      --sp-3: 24px;
+      --sp-4: 32px;
+      --sp-5: 40px;
+      --sp-6: 48px;
+      --sp-7: 56px;
+      --sp-8: 64px;
+      --sp-9: 72px;
+      --sp-10: 80px;
+      --sp-12: 96px;
+      --sp-16: 128px;
+      
+      /* Border Radius */
+      --radius-xs: 4px;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 20px;
+      --radius-xl: 32px;
+      --radius-full: 9999px;
+      
+      /* Shadows */
+      --shadow-xs: 0 1px 2px rgba(13, 27, 42, 0.04);
+      --shadow-sm: 0 2px 8px rgba(13, 27, 42, 0.06), 0 1px 3px rgba(13, 27, 42, 0.04);
+      --shadow-md: 0 4px 16px rgba(13, 27, 42, 0.08), 0 2px 6px rgba(13, 27, 42, 0.04);
+      --shadow-lg: 0 12px 40px rgba(13, 27, 42, 0.12), 0 4px 12px rgba(13, 27, 42, 0.06);
+      --shadow-xl: 0 24px 80px rgba(13, 27, 42, 0.16), 0 8px 24px rgba(13, 27, 42, 0.08);
+      --shadow-teal: 0 8px 32px rgba(26, 138, 123, 0.20);
+      --shadow-gold: 0 8px 32px rgba(212, 168, 75, 0.24);
+      
+      /* Typography */
+      --font-display: 'Cormorant Garamond', Georgia, serif;
+      --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      
+      /* Transitions */
+      --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition-slow: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-smooth: cubic-bezier(0.25, 1, 0.5, 1);
+      --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      
+      /* Z-Index Scale */
+      --z-base: 1;
+      --z-sticky: 100;
+      --z-modal: 200;
+      --z-toast: 300;
+      --z-overlay: 400;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESET & BASE
+       ═══════════════════════════════════════════════════════════════ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
+    body {
+      font-family: var(--font-ui);
+      background: var(--cream);
+      color: var(--text-dark);
+      line-height: 1.6;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
+      transition: color var(--transition);
+    }
+
+    button {
+      cursor: pointer;
+      font-family: var(--font-ui);
+      border: none;
+      background: none;
+      transition: all var(--transition);
+    }
+
+    input, select, textarea {
+      font-family: var(--font-ui);
+      font-size: 14px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       AMBIENT BACKGROUND BLOBS
+       Creates cinematic depth with floating gradient orbs
+       ═══════════════════════════════════════════════════════════════ */
+    .ambient-blobs {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.5;
+      animation: float 25s infinite alternate ease-in-out;
+      will-change: transform;
+    }
+
+    .blob-1 {
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, var(--teal) 0%, transparent 70%);
+      top: -15%;
+      left: -10%;
+      opacity: 0.12;
+      animation-delay: 0s;
+    }
+
+    .blob-2 {
+      width: 1000px;
+      height: 1000px;
+      background: radial-gradient(circle, var(--gold) 0%, transparent 70%);
+      bottom: -20%;
+      right: -15%;
+      opacity: 0.08;
+      animation-delay: -8s;
+    }
+
+    .blob-3 {
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, var(--navy) 0%, transparent 70%);
+      top: 40%;
+      left: 30%;
+      opacity: 0.05;
+      animation-delay: -16s;
+    }
+
+    @keyframes float {
+      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+      33% { transform: translate(30px, -30px) scale(1.05) rotate(120deg); }
+      66% { transform: translate(-20px, 20px) scale(0.95) rotate(240deg); }
+      100% { transform: translate(40px, -40px) scale(1.1) rotate(360deg); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       UTILITY CLASSES
+       ═══════════════════════════════════════════════════════════════ */
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .glass {
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid var(--glass-border);
+    }
+
+    .glass-dark {
+      background: var(--glass-bg-dark);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid var(--glass-border-dark);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SCROLLBAR CUSTOMIZATION
+       ═══════════════════════════════════════════════════════════════ */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--cream);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--teal-dim);
+      border-radius: 4px;
+      transition: background var(--transition);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--teal);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       NAVIGATION
+       Premium glassmorphic navbar with scroll-aware behavior
+       ═══════════════════════════════════════════════════════════════ */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: var(--z-sticky);
+      padding: 16px 0;
+      transition: all var(--transition-slow);
+    }
+
+    .nav.scrolled {
+      padding: 12px 0;
+      background: rgba(13, 27, 42, 0.92);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .nav-logo-mark {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(26, 138, 123, 0.3);
+      transition: transform var(--transition);
+    }
+
+    .nav-logo:hover .nav-logo-mark {
+      transform: scale(1.05) rotate(-5deg);
+    }
+
+    .nav-logo-mark svg {
+      width: 24px;
+      height: 24px;
+      fill: white;
+    }
+
+    .nav-logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+
+    .nav-logo-name {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 600;
+      color: white;
+      letter-spacing: 0.01em;
+    }
+
+    .nav-logo-sub {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--teal-light);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 36px;
+    }
+
+    .nav-links a {
+      font-size: 14px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.72);
+      letter-spacing: 0.02em;
+      position: relative;
+      padding: 8px 0;
+    }
+
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: var(--teal-light);
+      transition: width var(--transition);
+    }
+
+    .nav-links a:hover {
+      color: white;
+    }
+
+    .nav-links a:hover::after {
+      width: 100%;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-nav {
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition);
+      letter-spacing: 0.02em;
+    }
+
+    .btn-nav-outline {
+      color: rgba(255, 255, 255, 0.8);
+      border: 1.5px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .btn-nav-outline:hover {
+      color: white;
+      border-color: rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.06);
+      transform: translateY(-1px);
+    }
+
+    .btn-nav-primary {
+      color: white;
+      background: var(--teal);
+      box-shadow: 0 4px 12px rgba(26, 138, 123, 0.3);
+    }
+
+    .btn-nav-primary:hover {
+      background: var(--teal-light);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-teal);
+    }
+
+    .nav-burger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      padding: 8px;
+    }
+
+    .nav-burger span {
+      display: block;
+      width: 24px;
+      height: 2px;
+      background: white;
+      border-radius: 2px;
+      transition: all var(--transition);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       HERO SECTION
+       Cinematic split layout with glassmorphic booking card
+       ═══════════════════════════════════════════════════════════════ */
+    .hero {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+      display: flex;
+      align-items: center;
+      padding: 140px 0 100px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 80% at 70% 50%, rgba(26, 138, 123, 0.15) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 60% at 10% 80%, rgba(26, 138, 123, 0.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.03;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.6) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.6) 1px, transparent 1px);
+      background-size: 80px 80px;
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      display: grid;
+      grid-template-columns: 1.1fr 520px;
+      gap: 80px;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(26, 138, 123, 0.15);
+      border: 1px solid rgba(26, 138, 123, 0.3);
+      border-radius: 100px;
+      padding: 8px 18px;
+      margin-bottom: 32px;
+      animation: fadeInUp 0.6s var(--ease-smooth) 0.2s both;
+    }
+
+    .hero-eyebrow-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--teal-light);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+      box-shadow: 0 0 12px var(--teal-light);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    .hero-eyebrow span {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--teal-light);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .hero-headline {
+      font-family: var(--font-display);
+      font-size: clamp(48px, 6.5vw, 84px);
+      font-weight: 300;
+      line-height: 1.04;
+      color: white;
+      letter-spacing: -0.02em;
+      margin-bottom: 28px;
+      animation: fadeInUp 0.6s var(--ease-smooth) 0.4s both;
+    }
+
+    .hero-headline em {
+      font-style: italic;
+      color: var(--teal-light);
+      font-weight: 400;
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.62);
+      max-width: 520px;
+      line-height: 1.7;
+      margin-bottom: 40px;
+      animation: fadeInUp 0.6s var(--ease-smooth) 0.6s both;
+    }
+
+    .hero-trust {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      animation: fadeInUp 0.6s var(--ease-smooth) 0.8s both;
+    }
+
+    .hero-trust-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hero-trust-icon {
+      width: 22px;
+      height: 22px;
+      color: var(--teal-light);
+      flex-shrink: 0;
+    }
+
+    .hero-trust-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.68);
+      letter-spacing: 0.02em;
+    }
+
+    .hero-trust-sep {
+      width: 1px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    /* Booking Panel */
+    .booking-panel {
+      background: white;
+      border-radius: var(--radius-xl);
+      padding: 40px 36px;
+      box-shadow: var(--shadow-xl), 0 0 0 1px rgba(26, 138, 123, 0.08);
+      position: relative;
+      transform: perspective(1000px) rotateY(-2deg) rotateX(2deg);
+      transition: transform 0.6s var(--ease-smooth);
+      animation: fadeInRight 0.8s var(--ease-smooth) 0.3s both;
+    }
+
+    .booking-panel:hover {
+      transform: perspective(1000px) rotateY(0) rotateX(0);
+    }
+
+    .booking-panel::before {
+      content: '';
+      position: absolute;
+      top: -1px;
+      left: 24px;
+      right: 24px;
+      height: 4px;
+      background: linear-gradient(90deg, var(--teal) 0%, var(--teal-light) 100%);
+      border-radius: 4px 4px 0 0;
+    }
+
+    .booking-panel-header {
+      margin-bottom: 28px;
+    }
+
+    .booking-panel-title {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 6px;
+    }
+
+    .booking-panel-sub {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .booking-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--cream);
+      border-radius: var(--radius-sm);
+      padding: 4px;
+      margin-bottom: 28px;
+    }
+
+    .booking-tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-radius: 6px;
+      transition: all var(--transition);
+      cursor: pointer;
+      letter-spacing: 0.02em;
+    }
+
+    .booking-tab.active {
+      background: white;
+      color: var(--teal);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .booking-tab:hover:not(.active) {
+      color: var(--text-mid);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .form-group.full {
+      grid-column: 1 / -1;
+    }
+
+    .form-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-mid);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .form-input, .form-select {
+      height: 48px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 16px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-dark);
+      background: white;
+      transition: all var(--transition);
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .form-select-wrap {
+      position: relative;
+    }
+
+    .form-select-wrap::after {
+      content: '';
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid var(--text-muted);
+      pointer-events: none;
+      transition: border-color var(--transition);
+    }
+
+    .form-select-wrap:hover::after {
+      border-top-color: var(--teal);
+    }
+
+    .form-input:focus, .form-select:focus {
+      outline: none;
+      border-color: var(--teal);
+      box-shadow: 0 0 0 4px rgba(26, 138, 123, 0.12);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .btn-book {
+      width: 100%;
+      height: 52px;
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all var(--transition);
+      letter-spacing: 0.03em;
+      box-shadow: var(--shadow-teal);
+      margin-top: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-book::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--teal-light) 0%, var(--teal) 100%);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+
+    .btn-book:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(26, 138, 123, 0.32);
+    }
+
+    .btn-book:hover::before {
+      opacity: 1;
+    }
+
+    .btn-book:active {
+      transform: translateY(0);
+    }
+
+    .btn-book svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-book span {
+      position: relative;
+      z-index: 1;
+    }
+
+    .booking-fee-note {
+      text-align: center;
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .booking-fee-note strong {
+      color: var(--teal);
+      font-weight: 700;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       STATS BAR
+       ═══════════════════════════════════════════════════════════════ */
+    .stats-bar {
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+      padding: 48px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stats-bar::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 80% at 50% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .stats-inner {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 0 24px;
+      position: relative;
+    }
+
+    .stat-item + .stat-item::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 15%;
+      height: 70%;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .stat-number {
+      font-family: var(--font-display);
+      font-size: 52px;
+      font-weight: 300;
+      color: white;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat-number span {
+      font-size: 32px;
+      vertical-align: super;
+      opacity: 0.8;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.78);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SECTION SCAFFOLDING
+       ═══════════════════════════════════════════════════════════════ */
+    .section {
+      padding: 120px 0;
+      position: relative;
+    }
+
+    .section-alt {
+      background: var(--teal-bg);
+    }
+
+    .section-dark {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+    }
+
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 20px;
+    }
+
+    .section-label::before {
+      content: '';
+      width: 32px;
+      height: 2px;
+      background: var(--teal);
+    }
+
+    .section-heading {
+      font-family: var(--font-display);
+      font-size: clamp(36px, 4.5vw, 56px);
+      font-weight: 300;
+      line-height: 1.08;
+      color: var(--text-dark);
+      margin-bottom: 20px;
+      letter-spacing: -0.02em;
+    }
+
+    .section-heading em {
+      font-style: italic;
+      color: var(--teal);
+      font-weight: 400;
+    }
+
+    .section-heading.on-dark {
+      color: white;
+    }
+
+    .section-sub {
+      font-size: 16px;
+      color: var(--text-soft);
+      line-height: 1.7;
+      max-width: 580px;
+    }
+
+    .section-sub.on-dark {
+      color: rgba(255, 255, 255, 0.62);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SERVICES
+       ═══════════════════════════════════════════════════════════════ */
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 64px;
+    }
+
+    .service-card {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 36px 32px;
+      border: 1px solid var(--border-light);
+      transition: all 0.4s var(--ease-smooth);
+      position: relative;
+      overflow: hidden;
+      cursor: default;
+      contain: layout style;
+    }
+
+    .service-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--teal) 0%, var(--teal-light) 100%);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.4s var(--ease-smooth);
+    }
+
+    .service-card:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--border-teal);
+    }
+
+    .service-card:hover::after {
+      transform: scaleX(1);
+    }
+
+    .service-icon {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, var(--teal-bg) 0%, var(--teal-dim) 100%);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      transition: transform var(--transition);
+    }
+
+    .service-card:hover .service-icon {
+      transform: scale(1.08) rotate(-5deg);
+    }
+
+    .service-icon svg {
+      width: 28px;
+      height: 28px;
+      color: var(--teal);
+    }
+
+    .service-name {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 12px;
+    }
+
+    .service-desc {
+      font-size: 14.5px;
+      color: var(--text-soft);
+      line-height: 1.65;
+      margin-bottom: 24px;
+    }
+
+    .service-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .service-tag {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--teal);
+      background: var(--teal-bg);
+      border-radius: 100px;
+      padding: 5px 12px;
+      letter-spacing: 0.02em;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       HOW IT WORKS
+       ═══════════════════════════════════════════════════════════════ */
+    .how-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 72px;
+    }
+
+    .steps-track {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      position: relative;
+    }
+
+    .steps-track::before {
+      content: '';
+      position: absolute;
+      top: 32px;
+      left: calc(12.5% + 16px);
+      right: calc(12.5% + 16px);
+      height: 2px;
+      background: linear-gradient(90deg, var(--teal-dim) 0%, var(--teal) 50%, var(--teal-dim) 100%);
+      z-index: 0;
+    }
+
+    .step {
+      text-align: center;
+      padding: 0 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-num {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      margin: 0 auto 24px;
+      background: white;
+      border: 3px solid var(--teal-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--teal);
+      transition: all 0.4s var(--ease-spring);
+      box-shadow: 0 4px 16px rgba(26, 138, 123, 0.12);
+    }
+
+    .step:hover .step-num {
+      background: var(--teal);
+      color: white;
+      border-color: var(--teal);
+      transform: scale(1.1);
+      box-shadow: var(--shadow-teal);
+    }
+
+    .step-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 10px;
+      letter-spacing: 0.02em;
+    }
+
+    .step-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       FOR NURSES
+       ═══════════════════════════════════════════════════════════════ */
+    .nurses-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .nurses-visual {
+      background: linear-gradient(135deg, var(--navy-mid) 0%, var(--navy-light) 100%);
+      border-radius: var(--radius-xl);
+      padding: 48px;
+      position: relative;
+      overflow: hidden;
+      min-height: 420px;
+      display: flex;
+      align-items: flex-end;
+      transform: perspective(1000px) rotateY(3deg);
+      transition: transform 0.6s var(--ease-smooth);
+    }
+
+    .nurses-visual:hover {
+      transform: perspective(1000px) rotateY(0);
+    }
+
+    .nurses-visual-bg {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 80% at 30% 20%, rgba(26, 138, 123, 0.25) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .nurses-stat-cards {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+    }
+
+    .nurse-card-ui {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: var(--radius-md);
+      padding: 18px 22px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      transition: all var(--transition);
+    }
+
+    .nurse-card-ui:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateX(4px);
+    }
+
+    .nurse-card-icon {
+      width: 46px;
+      height: 46px;
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(26, 138, 123, 0.3);
+    }
+
+    .nurse-card-icon svg {
+      width: 24px;
+      height: 24px;
+      color: white;
+    }
+
+    .nurse-card-info {
+      flex: 1;
+    }
+
+    .nurse-card-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.52);
+      margin-bottom: 3px;
+    }
+
+    .nurse-card-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .nurses-content .section-label {
+      color: var(--gold);
+    }
+
+    .nurses-content .section-label::before {
+      background: var(--gold);
+    }
+
+    .nurses-content .section-heading {
+      color: white;
+    }
+
+    .nurses-benefits {
+      margin: 32px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .nurse-benefit {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .nurse-benefit-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--teal-light);
+      border-radius: 50%;
+      margin-top: 8px;
+      flex-shrink: 0;
+      box-shadow: 0 0 12px var(--teal-light);
+    }
+
+    .nurse-benefit-text {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.75);
+      line-height: 1.6;
+    }
+
+    .nurse-benefit-text strong {
+      color: white;
+      font-weight: 700;
+    }
+
+    .btn-nurse {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+      color: var(--navy);
+      font-size: 15px;
+      font-weight: 700;
+      padding: 16px 32px;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition);
+      box-shadow: var(--shadow-gold);
+      letter-spacing: 0.03em;
+    }
+
+    .btn-nurse:hover {
+      background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 36px rgba(212, 168, 75, 0.36);
+    }
+
+    .btn-nurse svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       TRUST
+       ═══════════════════════════════════════════════════════════════ */
+    .trust-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      margin-top: 64px;
+    }
+
+    .trust-card {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      border: 1px solid var(--border-light);
+      position: relative;
+      transition: all 0.4s var(--ease-smooth);
+      contain: layout style;
+    }
+
+    .trust-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .trust-badge {
+      position: absolute;
+      top: -1px;
+      right: 28px;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+      color: var(--navy);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+      box-shadow: 0 4px 12px rgba(212, 168, 75, 0.3);
+    }
+
+    .trust-icon {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, var(--teal-bg) 0%, var(--teal-dim) 100%);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .trust-icon svg {
+      width: 26px;
+      height: 26px;
+      color: var(--teal);
+    }
+
+    .trust-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .trust-desc {
+      font-size: 14px;
+      color: var(--text-soft);
+      line-height: 1.65;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       TESTIMONIALS
+       ═══════════════════════════════════════════════════════════════ */
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 56px;
+    }
+
+    .testi-card {
+      background: linear-gradient(135deg, var(--navy-mid) 0%, var(--navy-light) 100%);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      position: relative;
+      transition: all 0.4s var(--ease-smooth);
+    }
+
+    .testi-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(26, 138, 123, 0.3);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .testi-quote-mark {
+      font-family: var(--font-display);
+      font-size: 72px;
+      line-height: 0.7;
+      color: var(--teal);
+      opacity: 0.4;
+      margin-bottom: 16px;
+      user-select: none;
+    }
+
+    .testi-text {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.78);
+      line-height: 1.7;
+      margin-bottom: 28px;
+      font-style: italic;
+    }
+
+    .testi-author {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .testi-avatar {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 19px;
+      font-weight: 600;
+      color: white;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(26, 138, 123, 0.3);
+    }
+
+    .testi-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 2px;
+    }
+
+    .testi-role {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.48);
+    }
+
+    .testi-stars {
+      display: flex;
+      gap: 3px;
+      margin-bottom: 16px;
+    }
+
+    .testi-stars span {
+      font-size: 14px;
+      color: var(--gold);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       FAQ
+       ═══════════════════════════════════════════════════════════════ */
+    .faq-list {
+      margin-top: 56px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .faq-item {
+      background: white;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-light);
+      overflow: hidden;
+      transition: all var(--transition);
+    }
+
+    .faq-item:hover {
+      border-color: var(--border-teal);
+    }
+
+    .faq-q {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 28px;
+      text-align: left;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-dark);
+      cursor: pointer;
+      transition: color var(--transition);
+      letter-spacing: 0.02em;
+    }
+
+    .faq-q:hover {
+      color: var(--teal);
+    }
+
+    .faq-q.open {
+      color: var(--teal);
+    }
+
+    .faq-icon {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      transition: transform 0.4s var(--ease-spring);
+    }
+
+    .faq-q.open .faq-icon {
+      transform: rotate(45deg);
+    }
+
+    .faq-a {
+      display: none;
+      padding: 0 28px 24px;
+      font-size: 14.5px;
+      color: var(--text-soft);
+      line-height: 1.7;
+      border-top: 1px solid var(--border-light);
+      padding-top: 20px;
+    }
+
+    .faq-a.open {
+      display: block;
+      animation: fadeIn 0.3s var(--ease-smooth);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       CALLBACK STRIP
+       ═══════════════════════════════════════════════════════════════ */
+    .callback-strip {
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+      padding: 72px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .callback-strip::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 80% at 50% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .callback-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 48px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .callback-text {
+      flex: 1;
+    }
+
+    .callback-heading {
+      font-family: var(--font-display);
+      font-size: 40px;
+      font-weight: 300;
+      color: white;
+      margin-bottom: 10px;
+    }
+
+    .callback-sub {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    .callback-form {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .callback-input {
+      height: 54px;
+      border: 2px solid rgba(255, 255, 255, 0.24);
+      border-radius: var(--radius-sm);
+      padding: 0 20px;
+      font-size: 15px;
+      font-weight: 500;
+      font-family: var(--font-ui);
+      width: 260px;
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: all var(--transition);
+    }
+
+    .callback-input::placeholder {
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    .callback-input:focus {
+      outline: none;
+      background: rgba(255, 255, 255, 0.22);
+      border-color: rgba(255, 255, 255, 0.48);
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-callback {
+      height: 54px;
+      padding: 0 28px;
+      background: var(--navy);
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition);
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-callback:hover {
+      background: var(--navy-mid);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════════════════════════ */
+    .footer {
+      background: var(--navy);
+      padding: 80px 0 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .footer::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(26, 138, 123, 0.3) 50%, transparent 100%);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 56px;
+      margin-bottom: 64px;
+    }
+
+    .footer-brand {
+      max-width: 320px;
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .footer-brand-desc {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.52);
+      line-height: 1.7;
+      margin-bottom: 28px;
+    }
+
+    .footer-social {
+      display: flex;
+      gap: 12px;
+    }
+
+    .social-btn {
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all var(--transition);
+    }
+
+    .social-btn:hover {
+      background: var(--teal);
+      border-color: var(--teal);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(26, 138, 123, 0.4);
+    }
+
+    .social-btn svg {
+      width: 18px;
+      height: 18px;
+      color: rgba(255, 255, 255, 0.65);
+      transition: color var(--transition);
+    }
+
+    .social-btn:hover svg {
+      color: white;
+    }
+
+    .footer-col-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.42);
+      margin-bottom: 20px;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+    }
+
+    .footer-links a {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.58);
+      transition: all var(--transition);
+    }
+
+    .footer-links a:hover {
+      color: white;
+      transform: translateX(4px);
+    }
+
+    .footer-bottom {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-copy {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.36);
+    }
+
+    .footer-legal {
+      display: flex;
+      gap: 24px;
+    }
+
+    .footer-legal a {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.36);
+      transition: color var(--transition);
+    }
+
+    .footer-legal a:hover {
+      color: rgba(255, 255, 255, 0.68);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       MODAL
+       ═══════════════════════════════════════════════════════════════ */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: var(--z-modal);
+      background: rgba(13, 27, 42, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition);
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: white;
+      border-radius: var(--radius-xl);
+      padding: 44px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      transform: translateY(24px) scale(0.96);
+      transition: transform 0.4s var(--ease-spring);
+      box-shadow: var(--shadow-xl);
+    }
+
+    .modal-backdrop.open .modal {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-close {
+      float: right;
+      width: 36px;
+      height: 36px;
+      background: var(--cream);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: -12px -12px 0 0;
+      transition: all var(--transition);
+    }
+
+    .modal-close:hover {
+      background: var(--border);
+      transform: rotate(90deg);
+    }
+
+    .modal-close svg {
+      width: 18px;
+      height: 18px;
+      color: var(--text-muted);
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 6px;
+      margin-top: 12px;
+    }
+
+    .modal-sub {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       TOAST NOTIFICATIONS
+       ═══════════════════════════════════════════════════════════════ */
+    #toast {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      z-index: var(--z-toast);
+      min-width: 300px;
+      max-width: 420px;
+      background: var(--navy);
+      color: white;
+      border-radius: var(--radius-md);
+      padding: 18px 22px;
+      box-shadow: var(--shadow-xl);
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      transform: translateY(24px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.4s var(--ease-spring);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    #toast.toast-success {
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    #toast.toast-error {
+      background: linear-gradient(135deg, #C0392B 0%, #96281B 100%);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .toast-icon {
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .toast-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .toast-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 3px;
+      letter-spacing: 0.02em;
+    }
+
+    .toast-msg {
+      font-size: 13px;
+      opacity: 0.85;
+      line-height: 1.5;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       LOADING STATES
+       ═══════════════════════════════════════════════════════════════ */
+    .btn-loading {
+      position: relative;
+      pointer-events: none;
+      opacity: 0.75;
+    }
+
+    .btn-loading::after {
+      content: '';
+      position: absolute;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255, 255, 255, 0.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: translateY(-50%) rotate(360deg); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       ANIMATIONS
+       ═══════════════════════════════════════════════════════════════ */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInRight {
+      from {
+        opacity: 0;
+        transform: translateX(32px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .fade-up {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.7s var(--ease-smooth), transform 0.7s var(--ease-smooth);
+    }
+
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESPONSIVE DESIGN
+       ═══════════════════════════════════════════════════════════════ */
+    @media (max-width: 1024px) {
+      .hero-inner {
+        grid-template-columns: 1fr;
+        max-width: 640px;
+        gap: 64px;
+      }
+
+      .booking-panel {
+        max-width: 100%;
+        transform: none;
+      }
+
+      .nurses-inner {
+        grid-template-columns: 1fr;
+        gap: 64px;
+      }
+
+      .nurses-visual {
+        min-height: 320px;
+        transform: none;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+      }
+
+      .services-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .trust-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .testimonials-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .nav-links, .nav-actions {
+        display: none;
+      }
+
+      .nav-burger {
+        display: flex;
+      }
+
+      .hero {
+        padding: 120px 0 80px;
+      }
+
+      .hero-headline {
+        font-size: clamp(36px, 8vw, 48px);
+      }
+
+      .stats-inner {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 32px;
+      }
+
+      .stat-item::before {
+        display: none;
+      }
+
+      .services-grid,
+      .trust-grid,
+      .testimonials-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .steps-track {
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+      }
+
+      .steps-track::before {
+        display: none;
+      }
+
+      .callback-inner {
+        flex-direction: column;
+        text-align: center;
+        gap: 32px;
+      }
+
+      .callback-form {
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .callback-input {
+        width: 100%;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+
+      .footer-bottom {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .how-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+      }
+
+      .section {
+        padding: 80px 0;
+      }
+
+      .hero-trust {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+      }
+
+      .hero-trust-sep {
+        display: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        padding: 0 20px;
+      }
+
+      .booking-panel {
+        padding: 32px 24px;
+      }
+
+      .modal {
+        padding: 32px 24px;
+      }
+
+      #toast {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        min-width: auto;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+
+      .fade-up {
+        opacity: 1;
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Background -->
+  <div class="ambient-blobs" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="nav" id="nav" role="navigation" aria-label="Main navigation">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo" aria-label="CareConnect360 home">
+        <div class="nav-logo-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402C1 4.044 3.766 2 6.5 2c1.876 0 3.637.787 5.5 2.44C13.863 2.787 15.624 2 17.5 2 20.234 2 23 4.044 23 7.191c0 4.105-5.37 8.863-11 14.402z"/>
+          </svg>
+        </div>
+        <div class="nav-logo-text">
+          <span class="nav-logo-name">CareConnect<sup style="font-size:0.55em;vertical-align:super">360</sup></span>
+          <span class="nav-logo-sub">Professional Home Care</span>
+        </div>
+      </a>
+      <div class="nav-links" role="list">
+        <a href="#services" role="listitem">Services</a>
+        <a href="#how" role="listitem">How It Works</a>
+        <a href="#trust" role="listitem">Why Us</a>
+        <a href="#nurses" role="listitem">For Nurses</a>
+        <a href="#faq" role="listitem">FAQ</a>
+      </div>
+      <div class="nav-actions">
+        <a href="tel:+910000000000" class="btn-nav btn-nav-outline">📞 Call Us</a>
+        <a href="#book" class="btn-nav btn-nav-primary" onclick="openBookingModal(event)">Book Now</a>
+      </div>
+      <button class="nav-burger" aria-label="Open menu" onclick="toggleMobileMenu()">
+        <span></span><span></span><span></span>
+      </button>
+    </div> 
+  </nav>
+    
+  <!-- Hero Section -->
+  <section class="hero" aria-label="Hero — Book nursing care at home">
+    <div class="container hero-inner">
+      <div class="hero-content">
+        <div class="hero-eyebrow">
+          <div class="hero-eyebrow-dot" aria-hidden="true"></div>
+          <span>Serving patients across India</span>
+        </div>
+        <h1 class="hero-headline">
+          Care,<br/>
+          <em>delivered</em><br/>
+          to your door.
+        </h1>
+        <p class="hero-sub">
+          Verified nurses, physiotherapists, and caregivers — background-checked, trained, and available within 4 hours. Healthcare at home, without compromise.
+        </p>
+        <div class="hero-trust">
+          <div class="hero-trust-item">
+            <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            <span class="hero-trust-text">Background verified</span>
+          </div>
+          <div class="hero-trust-sep" aria-hidden="true"></div>
+          <div class="hero-trust-item">
+            <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="hero-trust-text">Available in 4 hours</span>
+          </div>
+          <div class="hero-trust-sep" aria-hidden="true"></div>
+          <div class="hero-trust-item">
+            <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+            </svg>
+            <span class="hero-trust-text">24/7 support</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Booking Panel -->
+      <div class="booking-panel" role="form" aria-label="Book a home care service" id="book">
+        <div class="booking-panel-header">
+          <h2 class="booking-panel-title">Book your nurse</h2>
+          <p class="booking-panel-sub">Simple, secure. Starts at ₹500 booking fee.</p>
+        </div>
+        <div class="booking-tabs" role="tablist">
+          <button class="booking-tab active" role="tab" aria-selected="true" onclick="switchHeroTab(this,'booking-fields')">Patient Booking</button>
+          <button class="booking-tab" role="tab" aria-selected="false" onclick="switchHeroTab(this,'callback-fields')">Request Callback</button>
+        </div>
+
+        <!-- Booking Fields -->
+        <div id="booking-fields">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="h-name">Patient Name</label>
+              <input class="form-input" id="h-name" type="text" placeholder="Full name" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="h-phone">Phone</label>
+              <input class="form-input" id="h-phone" type="tel" placeholder="+91 XXXXX XXXXX" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="h-service">Service Required</label>
+            <div class="form-select-wrap">
+              <select class="form-select" id="h-service" required>
+                <option value="">Select a service</option>
+                <option>General Nursing Care</option>
+                <option>Post-Surgical Recovery</option>
+                <option>ICU / Critical Care at Home</option>
+                <option>Physiotherapy</option>
+                <option>Elder & Dementia Care</option>
+                <option>Neonatal & Mother Care</option>
+                <option>Wound Dressing & Injections</option>
+                <option>24-Hour Attendant Care</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="h-date">Start Date</label>
+              <input class="form-input" id="h-date" type="date" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="h-shift">Shift</label>
+              <div class="form-select-wrap">
+                <select class="form-select" id="h-shift">
+                  <option>Day (7am–7pm)</option>
+                  <option>Night (7pm–7am)</option>
+                  <option>24-Hour</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <button class="btn-book" id="hero-book-btn" onclick="handleHeroBooking()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>Confirm & Pay ₹500</span>
+          </button>
+          <p class="booking-fee-note">Secure payment via Razorpay · <strong>100% refundable</strong> if we can't place a nurse</p>
+        </div>
+
+        <!-- Callback Fields -->
+        <div id="callback-fields" style="display:none">
+          <div class="form-group">
+            <label class="form-label" for="cb-name">Your Name</label>
+            <input class="form-input" id="cb-name" type="text" placeholder="Full name" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cb-phone">Phone Number</label>
+            <input class="form-input" id="cb-phone" type="tel" placeholder="+91 XXXXX XXXXX" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cb-time">Best Time to Call</label>
+            <div class="form-select-wrap">
+              <select class="form-select" id="cb-time">
+                <option>Morning (9am – 12pm)</option>
+                <option>Afternoon (12pm – 4pm)</option>
+                <option>Evening (4pm – 7pm)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cb-msg">Brief requirement (optional)</label>
+            <input class="form-input" id="cb-msg" type="text" placeholder="e.g. Post-surgery nursing, 10 days" />
+          </div>
+          <button class="btn-book" id="cb-submit-btn" onclick="handleHeroCallback()" style="background:linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+            </svg>
+            <span>Request Callback</span>
+          </button>
+          <p class="booking-fee-note">We call back within <strong>30 minutes</strong> during business hours</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar" role="region" aria-label="Key statistics">
+    <div class="stats-inner">
+      <div class="stat-item fade-up">
+        <div class="stat-number">2,400<span>+</span></div>
+        <div class="stat-label">Patients served</div>
+      </div>
+      <div class="stat-item fade-up">
+        <div class="stat-number">180<span>+</span></div>
+        <div class="stat-label">Verified nurses</div>
+      </div>
+      <div class="stat-item fade-up">
+        <div class="stat-number">4<span>h</span></div>
+        <div class="stat-label">Avg. placement time</div>
+      </div>
+      <div class="stat-item fade-up">
+        <div class="stat-number">98<span>%</span></div>
+        <div class="stat-label">Family satisfaction</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Services Section -->
+  <section class="section" id="services" aria-label="Our care services">
+    <div class="container">
+      <div class="fade-up">
+        <p class="section-label">What we offer</p>
+        <h2 class="section-heading">Professional care,<br/><em>tailored to your need</em></h2>
+        <p class="section-sub">Every service is delivered by a trained, verified professional — matched to your specific medical requirement, not just availability.</p>
+      </div>
+      <div class="services-grid">
+        <div class="service-card fade-up">
+          <div class="service-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+            </svg>
+          </div>
+          <h3 class="service-name">General Nursing</h3>
+          <p class="service-desc">Comprehensive bedside care by registered nurses — medication administration, vitals monitoring, patient hygiene, and daily health assessments.</p>
+          <div class="service-tags">
+            <span class="service-tag">RN / ANM</span>
+            <span class="service-tag">Day or Night</span>
+            <span class="service-tag">Chronic illness</span>
+          </div>
+        </div>
+        <div class="service-card fade-up">
+          <div class="service-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <path d="M3 9h18M9 21V9"/>
+            </svg>
+          </div>
+          <h3 class="service-name">Post-Surgical Care</h3>
+          <p class="service-desc">Seamless hospital-to-home transition with wound dressing, drain management, IV care, and daily reporting to your surgeon.</p>
+          <div class="service-tags">
+            <span class="service-tag">Wound care</span>
+            <span class="service-tag">IV therapy</span>
+            <span class="service-tag">Recovery tracking</span>
+          </div>
+        </div>
+        <div class="service-card fade-up">
+          <div class="service-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <h3 class="service-name">ICU / Critical Care</h3>
+          <p class="service-desc">Advanced home-ICU setup with ventilator-trained nurses, cardiac monitoring, oxygen therapy, and 24-hour critical observation.</p>
+          <div class="service-tags">
+            <span class="service-tag">Ventilator care</span>
+            <span class="service-tag">Cardiac monitoring</span>
+            <span class="service-tag">24 hours</span>
+          </div>
+        </div>
+        <div class="service-card fade-up">
+          <div class="service-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 8v4l3 3"/>
+            </svg>
+          </div>
+          <h3 class="service-name">Physiotherapy</h3>
+          <p class="service-desc">In-home physiotherapy sessions for post-fracture recovery, stroke rehabilitation, Parkinson's, arthritis, and sports injuries.</p>
+          <div class="service-tags">
+            <span class="service-tag">Stroke rehab</span>
+            <span class="service-tag">Orthopaedic</span>
+            <span class="service-tag">Neuro physio</span>
+          </div>
+        </div>
+        <div class="service-card fade-up">
+          <div class="service-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+              <path d="M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+          </div>
+          <h3 class="service-name">Elder & Dementia Care</h3>
+          <p class="service-desc">Compassionate, continuous care for seniors with Alzheimer's, dementia, or mobility limitations — preserving dignity and independence at home.</p>
+          <div class="service-tags">
+            <span class="service-tag">Alzheimer's</span>
+            <span class="service-tag">Fall prevention</span>
+            <span class="service-tag">Companion care</span>
+          </div>
+        </div>
+        <div class="service-card fade-up">
+          <div class="service-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z"/>
+              <path d="M8.5 14.5s1.5 2 3.5 2 3.5-2 3.5-2"/>
+              <path d="M9 9h.01M15 9h.01"/>
+            </svg>
+          </div>
+          <h3 class="service-name">Neonatal & Mother Care</h3>
+          <p class="service-desc">Trained neonatal nurses for newborn care, breastfeeding support, and post-delivery recovery for new mothers — in the comfort of home.</p>
+          <div class="service-tags">
+            <span class="service-tag">Newborn care</span>
+            <span class="service-tag">Lactation support</span>
+            <span class="service-tag">C-section recovery</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works Section -->
+  <section class="section section-alt" id="how" aria-label="How CareConnect360 works">
+    <div class="container">
+      <div class="how-header fade-up">
+        <div>
+          <p class="section-label">The process</p>
+          <h2 class="section-heading">From booking to bedside<br/><em>in four steps</em></h2>
+        </div>
+        <p class="section-sub" style="max-width:360px">We handle every detail of matching, verifying, and placing your nurse — so you can focus entirely on recovery.</p>
+      </div>
+      <div class="steps-track">
+        <div class="step fade-up">
+          <div class="step-num">1</div>
+          <h3 class="step-title">Tell us your need</h3>
+          <p class="step-desc">Book online in 2 minutes or call us. Describe the service, preferred dates, and shift type.</p>
+        </div>
+        <div class="step fade-up">
+          <div class="step-num">2</div>
+          <h3 class="step-title">We match your nurse</h3>
+          <p class="step-desc">Our coordinator selects the best-qualified, background-verified nurse near you within 30 minutes.</p>
+        </div>
+        <div class="step fade-up">
+          <div class="step-num">3</div>
+          <h3 class="step-title">Confirm & pay securely</h3>
+          <p class="step-desc">A ₹500 booking fee confirms your slot via Razorpay. Remaining fees are settled directly with the nurse.</p>
+        </div>
+        <div class="step fade-up">
+          <div class="step-num">4</div>
+          <h3 class="step-title">Care begins at home</h3>
+          <p class="step-desc">Your nurse arrives on time with full documentation. Daily reports are shared with the family.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- For Nurses Section -->
+  <section class="section section-dark" id="nurses" aria-label="Join as a nurse">
+    <div class="container">
+      <div class="nurses-inner">
+        <div class="nurses-visual fade-up">
+          <div class="nurses-visual-bg" aria-hidden="true"></div>
+          <div class="nurses-stat-cards">
+            <div class="nurse-card-ui">
+              <div class="nurse-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <div class="nurse-card-info">
+                <div class="nurse-card-label">Average Monthly Earning</div>
+                <div class="nurse-card-value">₹28,000 – ₹55,000</div>
+              </div>
+            </div>
+            <div class="nurse-card-ui">
+              <div class="nurse-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+              </div>
+              <div class="nurse-card-info">
+                <div class="nurse-card-label">Flexible Schedule</div>
+                <div class="nurse-card-value">Day, Night, or 24-hour shifts</div>
+              </div>
+            </div>
+            <div class="nurse-card-ui">
+              <div class="nurse-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/>
+                </svg>
+              </div>
+              <div class="nurse-card-info">
+                <div class="nurse-card-label">Active Care Professionals</div>
+                <div class="nurse-card-value">180+ verified and working</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="nurses-content fade-up">
+          <p class="section-label" style="color:var(--gold)">For care professionals</p>
+          <h2 class="section-heading" style="color:white">Your skills deserve<br/><em style="color:var(--teal-light)">the right platform</em></h2>
+          <div class="nurses-benefits">
+            <div class="nurse-benefit">
+              <div class="nurse-benefit-dot" aria-hidden="true"></div>
+              <p class="nurse-benefit-text"><strong>Consistent work near you.</strong> Cases matched to your location, specialisation, and availability — no cold-calling patients.</p>
+            </div>
+            <div class="nurse-benefit">
+              <div class="nurse-benefit-dot" aria-hidden="true"></div>
+              <p class="nurse-benefit-text"><strong>Fair, transparent pay.</strong> Market-rate earnings paid on time, every time — no hidden deductions, no agency markups eating your share.</p>
+            </div>
+            <div class="nurse-benefit">
+              <div class="nurse-benefit-dot" aria-hidden="true"></div>
+              <p class="nurse-benefit-text"><strong>Professional recognition.</strong> Build your verified profile, collect patient ratings, and grow your reputation within a trusted network.</p>
+            </div>
+            <div class="nurse-benefit">
+              <div class="nurse-benefit-dot" aria-hidden="true"></div>
+              <p class="nurse-benefit-text"><strong>Support when it matters.</strong> 24/7 coordinator backup for difficult cases — you're never alone in a complex clinical situation.</p>
+            </div>
+          </div>
+          <a href="#apply" class="btn-nurse" onclick="openApplyModal(event)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+            </svg>
+            <span>Apply to Join the Network</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trust Section -->
+  <section class="section" id="trust" aria-label="Why families trust CareConnect360">
+    <div class="container">
+      <div class="fade-up">
+        <p class="section-label">Why families choose us</p>
+        <h2 class="section-heading">Trust is not assumed —<br/><em>it is built in</em></h2>
+      </div>
+      <div class="trust-grid">
+        <div class="trust-card fade-up">
+          <div class="trust-badge">Our Standard</div>
+          <div class="trust-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <h3 class="trust-title">Rigorous Background Verification</h3>
+          <p class="trust-desc">Every nurse on our platform passes a 5-point check: government ID, nursing council registration, criminal record clearance, reference verification, and skills assessment. No exceptions.</p>
+        </div>
+        <div class="trust-card fade-up">
+          <div class="trust-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+          </div>
+          <h3 class="trust-title">DPDP-Compliant Data Handling</h3>
+          <p class="trust-desc">Patient data is handled under India's Digital Personal Data Protection Act, 2023. Your medical information is encrypted in transit, never sold, and fully erasable on request.</p>
+        </div>
+        <div class="trust-card fade-up">
+          <div class="trust-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+          </div>
+          <h3 class="trust-title">Secure Razorpay Payments</h3>
+          <p class="trust-desc">The ₹500 booking fee is processed through Razorpay's PCI-DSS certified gateway. Fully refundable if a nurse cannot be placed within 4 hours — no questions asked.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials Section -->
+  <section class="section section-dark" aria-label="Patient testimonials">
+    <div class="container">
+      <div class="fade-up">
+        <p class="section-label" style="color:var(--teal-light)">Patient voices</p>
+        <h2 class="section-heading on-dark">Families who trusted us<br/><em style="color:var(--teal-light)">and found relief</em></h2>
+      </div>
+      <div class="testimonials-grid">
+        <div class="testi-card fade-up">
+          <div class="testi-stars">
+            <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+          </div>
+          <div class="testi-quote-mark">"</div>
+          <p class="testi-text">After my father's hip surgery, the nurse arrived within 3 hours and was incredibly professional. The daily reports she sent gave our whole family peace of mind. We couldn't have managed without CareConnect360.</p>
+          <div class="testi-author">
+            <div class="testi-avatar">R</div>
+            <div>
+              <div class="testi-name">Rajesh Sharma</div>
+              <div class="testi-role">Son of patient · New Delhi</div>
+            </div>
+          </div>
+        </div>
+        <div class="testi-card fade-up">
+          <div class="testi-stars">
+            <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+          </div>
+          <div class="testi-quote-mark">"</div>
+          <p class="testi-text">My mother had a stroke, and finding a neuro-physiotherapist at home seemed impossible. CareConnect360 placed one the next morning — certified, experienced, and so patient with her. The recovery has been remarkable.</p>
+          <div class="testi-author">
+            <div class="testi-avatar" style="background:linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);color:var(--navy)">P</div>
+            <div>
+              <div class="testi-name">Priya Nair</div>
+              <div class="testi-role">Daughter of patient · Bangalore</div>
+            </div>
+          </div>
+        </div>
+        <div class="testi-card fade-up">
+          <div class="testi-stars">
+            <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+          </div>
+          <div class="testi-quote-mark">"</div>
+          <p class="testi-text">As a nurse, this platform genuinely changed my income and work-life balance. I choose my shifts, work close to home, and get paid on time. The coordinator team is also remarkably supportive when cases get complex.</p>
+          <div class="testi-author">
+            <div class="testi-avatar" style="background:linear-gradient(135deg, #2C5F6E 0%, #1A3A45 100%)">A</div>
+            <div>
+              <div class="testi-name">Asha Menon, RN</div>
+              <div class="testi-role">CareConnect360 nurse · Mumbai</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="section section-alt" id="faq" aria-label="Frequently asked questions">
+    <div class="container" style="max-width:800px">
+      <div class="fade-up">
+        <p class="section-label">Common questions</p>
+        <h2 class="section-heading">Answered clearly,<br/><em>no jargon</em></h2>
+      </div>
+      <div class="faq-list" role="list">
+        <div class="faq-item" role="listitem">
+          <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+            What does the ₹500 booking fee cover?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 4v16m8-8H4"/>
+            </svg>
+          </button>
+          <div class="faq-a">The ₹500 fee confirms your booking slot, triggers our matching process, and covers coordinator time. It is fully refundable if we cannot place a suitable nurse within 4 hours of booking. The nurse's care fees are separate and settled directly with the nurse based on shift duration and service type.</div>
+        </div>
+        <div class="faq-item" role="listitem">
+          <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+            How do you verify your nurses?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 4v16m8-8H4"/>
+            </svg>
+          </button>
+          <div class="faq-a">Every nurse completes a 5-stage verification: (1) Government-issued ID, (2) Indian Nursing Council or State Nursing Council registration check, (3) criminal record clearance, (4) two professional references, and (5) a clinical skills assessment by our medical advisor. Verified nurses receive a CareConnect360 badge on their profile.</div>
+        </div>
+        <div class="faq-item" role="listitem">
+          <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+            How quickly can a nurse arrive?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 4v16m8-8H4"/>
+            </svg>
+          </button>
+          <div class="faq-a">For standard bookings, we place a nurse within 4 hours. For critical care or ICU setups, allow 6–12 hours for specialist matching. Emergency overnight placements are available in select cities (Delhi, Mumbai, Bangalore, Hyderabad, Chennai, Lucknow) with as-fast-as-possible response.</div>
+        </div>
+        <div class="faq-item" role="listitem">
+          <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+            What happens if I am not satisfied with the nurse?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 4v16m8-8H4"/>
+            </svg>
+          </button>
+          <div class="faq-a">Call us any time. We will replace the nurse at no additional booking fee within 4 hours of your complaint. Your care should never feel like a compromise — we stand behind every placement we make.</div>
+        </div>
+        <div class="faq-item" role="listitem">
+          <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+            Is my patient data kept private?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 4v16m8-8H4"/>
+            </svg>
+          </button>
+          <div class="faq-a">Yes. CareConnect360 complies with India's Digital Personal Data Protection Act, 2023. Your booking details and patient information are encrypted in transit and at rest, never shared with third parties for marketing, and can be requested for deletion at any time by writing to us.</div>
+        </div>
+        <div class="faq-item" role="listitem">
+          <button class="faq-q" onclick="toggleFaq(this)" aria-expanded="false">
+            I am a nurse. How do I join the platform?
+            <svg class="faq-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 4v16m8-8H4"/>
+            </svg>
+          </button>
+          <div class="faq-a">Click "Apply to Join" above and fill in the short application form. Our onboarding coordinator will contact you within 24 hours to begin the verification process. You'll need your nursing council registration, a valid ID, and two professional references. The process takes 3–5 working days.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Callback Strip -->
+  <div class="callback-strip" role="complementary" aria-label="Request a callback">
+    <div class="container">
+      <div class="callback-inner">
+        <div class="callback-text fade-up">
+          <h2 class="callback-heading">Not sure what you need?<br/>Let us call you.</h2>
+          <p class="callback-sub">Our care coordinators are available 7 days a week, 7am–9pm.</p>
+        </div>
+        <div class="callback-form" role="form">
+          <input class="callback-input" id="strip-phone" type="tel" placeholder="+91 your mobile number" aria-label="Your phone number" />
+          <button class="btn-callback" onclick="handleStripCallback()">Call me back</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer" role="contentinfo">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="footer-logo">
+            <div class="nav-logo-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402C1 4.044 3.766 2 6.5 2c1.876 0 3.637.787 5.5 2.44C13.863 2.787 15.624 2 17.5 2 20.234 2 23 4.044 23 7.191c0 4.105-5.37 8.863-11 14.402z" fill="white"/>
+              </svg>
+            </div>
+            <div class="nav-logo-text">
+              <span class="nav-logo-name">CareConnect<sup style="font-size:0.55em">360</sup></span>
+              <span class="nav-logo-sub">Professional Home Care</span>
+            </div>
+          </div>
+          <p class="footer-brand-desc">India's trusted platform for verified nursing and home care services. Placing qualified care professionals in homes with speed, safety, and compassion.</p>
+          <div class="footer-social">
+            <a href="#" class="social-btn" aria-label="Facebook">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/>
+              </svg>
+            </a>
+            <a href="#" class="social-btn" aria-label="Instagram">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+              </svg>
+            </a>
+            <a href="#" class="social-btn" aria-label="LinkedIn">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/>
+                <circle cx="4" cy="4" r="2"/>
+              </svg>
+            </a>
+            <a href="#" class="social-btn" aria-label="WhatsApp">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                <path d="M11.5 2C6.262 2 2 6.262 2 11.5c0 1.8.49 3.49 1.34 4.94L2 22l5.69-1.32C9.03 21.52 10.24 22 11.5 22 16.738 22 21 17.738 21 12.5S16.738 2 11.5 2z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+        <div>
+          <h3 class="footer-col-title">Services</h3>
+          <nav class="footer-links" aria-label="Footer services links">
+            <a href="#services">General Nursing</a>
+            <a href="#services">Post-Surgical Care</a>
+            <a href="#services">ICU at Home</a>
+            <a href="#services">Physiotherapy</a>
+            <a href="#services">Elder Care</a>
+            <a href="#services">Neonatal Care</a>
+          </nav>
+        </div>
+        <div>
+          <h3 class="footer-col-title">Company</h3>
+          <nav class="footer-links" aria-label="Footer company links">
+            <a href="#">About Us</a>
+            <a href="#">Our Nurses</a>
+            <a href="#nurses">Join as a Nurse</a>
+            <a href="#faq">FAQ</a>
+            <a href="#">Contact</a>
+          </nav>
+        </div>
+        <div>
+          <h3 class="footer-col-title">Contact</h3>
+          <div class="footer-links">
+            <a href="tel:+918000000000" style="display:flex;align-items:center;gap:10px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+              </svg>
+              +91 80000 00000
+            </a>
+            <a href="mailto:care@careconnect360.in" style="display:flex;align-items:center;gap:10px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              care@careconnect360.in
+            </a>
+            <span style="display:flex;align-items:flex-start;gap:10px;font-size:14px;color:rgba(255,255,255,0.58)">
+              <svg width="15" height="15" style="flex-shrink:0;margin-top:3px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <circle cx="12" cy="11" r="3"/>
+              </svg>
+              Serving patients across India · 7am–9pm daily
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p class="footer-copy">© 2026 CareConnect360. All rights reserved. DPDP Act compliant.</p>
+        <div class="footer-legal">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+          <a href="#">Refund Policy</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Apply Modal -->
+  <div class="modal-backdrop" id="apply-modal" role="dialog" aria-modal="true" aria-label="Apply to join as a nurse" onclick="closeApplyModal(event)">
+    <div class="modal">
+      <button class="modal-close" onclick="document.getElementById('apply-modal').classList.remove('open')" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+      <h2 class="modal-title" style="margin-top:10px">Join the Network</h2>
+      <p class="modal-sub">Apply to become a CareConnect360 verified nurse — your details stay private.</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="app-name">Full Name</label>
+          <input class="form-input" id="app-name" type="text" placeholder="As per nursing council" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="app-phone">Phone</label>
+          <input class="form-input" id="app-phone" type="tel" placeholder="+91 XXXXX XXXXX" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="app-email">Email</label>
+        <input class="form-input" id="app-email" type="email" placeholder="your@email.com" required />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="app-qual">Qualification</label>
+          <div class="form-select-wrap">
+            <select class="form-select" id="app-qual" required>
+              <option value="">Select</option>
+              <option>GNM (General Nursing)</option>
+              <option>B.Sc Nursing</option>
+              <option>M.Sc Nursing</option>
+              <option>ANM</option>
+              <option>BPT (Physiotherapy)</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="app-exp">Experience</label>
+          <div class="form-select-wrap">
+            <select class="form-select" id="app-exp">
+              <option>Less than 1 year</option>
+              <option>1–3 years</option>
+              <option>3–5 years</option>
+              <option>5–10 years</option>
+              <option>10+ years</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="app-city">City / Area</label>
+        <input class="form-input" id="app-city" type="text" placeholder="e.g. Lucknow, Uttar Pradesh" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="app-msg">Specialisation or additional notes (optional)</label>
+        <input class="form-input" id="app-msg" type="text" placeholder="e.g. ICU experience, neonatal care, dementia..." />
+      </div>
+      <button class="btn-book" id="apply-btn" onclick="handleApplication()" style="margin-top:10px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>Submit Application</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" role="alert" aria-live="polite">
+    <div class="toast-icon" id="toast-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+    </div>
+    <div>
+      <div class="toast-title" id="toast-title"></div>
+      <div class="toast-msg" id="toast-msg"></div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script>
+    /* ═══════════════════════════════════════════════════════════════
+       NAVIGATION — Scroll shadow
+       ═══════════════════════════════════════════════════════════════ */
+    const nav = document.getElementById('nav');
+    let lastScroll = 0;
+    
+    window.addEventListener('scroll', () => {
+      const currentScroll = window.scrollY;
+      nav.classList.toggle('scrolled', currentScroll > 20);
+      lastScroll = currentScroll;
+    }, { passive: true });
+
+    /* ═══════════════════════════════════════════════════════════════
+       SCROLL ANIMATIONS — Intersection Observer
+       ═══════════════════════════════════════════════════════════════ */
+    const fadeEls = document.querySelectorAll('.fade-up');
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          setTimeout(() => e.target.classList.add('visible'), i * 100);
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    
+    fadeEls.forEach(el => io.observe(el));
+
+    /* ═══════════════════════════════════════════════════════════════
+       FORM HELPERS
+       ═══════════════════════════════════════════════════════════════ */
+    const dateInputs = document.querySelectorAll('input[type="date"]');
+    const today = new Date().toISOString().split('T')[0];
+    dateInputs.forEach(d => d.min = today);
+
+    function switchHeroTab(btn, panelId) {
+      document.querySelectorAll('.booking-tab').forEach(t => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+      ['booking-fields', 'callback-fields'].forEach(id => {
+        document.getElementById(id).style.display = (id === panelId) ? 'block' : 'none';
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       TOAST NOTIFICATIONS
+       ═══════════════════════════════════════════════════════════════ */
+    let toastTimer;
+    function showToast(title, msg, type = 'info') {
+      const el = document.getElementById('toast');
+      document.getElementById('toast-title').textContent = title;
+      document.getElementById('toast-msg').textContent = msg;
+      el.className = 'show ' + (type === 'success' ? 'toast-success' : type === 'error' ? 'toast-error' : '');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        el.classList.remove('show');
+      }, 5000);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       VALIDATION HELPERS
+       ═══════════════════════════════════════════════════════════════ */
+    function sanitize(str) {
+      const d = document.createElement('div');
+      d.appendChild(document.createTextNode(String(str || '')));
+      return d.innerHTML.trim();
+    }
+
+    function validatePhone(p) {
+      return /^[6-9]\d{9}$/.test(p.replace(/[\s\-\+]/g, '').replace(/^91/, '').replace(/^0/, ''));
+    }
+
+    function validateEmail(e) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       HERO BOOKING — Razorpay Integration
+       ═══════════════════════════════════════════════════════════════ */
+    function handleHeroBooking() {
+      const name = sanitize(document.getElementById('h-name').value);
+      const phone = sanitize(document.getElementById('h-phone').value);
+      const service = sanitize(document.getElementById('h-service').value);
+      const date = sanitize(document.getElementById('h-date').value);
+      
+      if (!name) return showToast('Missing field', 'Please enter the patient name.', 'error');
+      if (!validatePhone(phone)) return showToast('Invalid phone', 'Enter a valid 10-digit Indian mobile number.', 'error');
+      if (!service) return showToast('Select a service', 'Please choose the type of care needed.', 'error');
+      if (!date) return showToast('Select a date', 'Please choose a start date.', 'error');
+
+      const btn = document.getElementById('hero-book-btn');
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+      showToast('Initialising', 'Connecting to secure payment gateway…', 'info');
+
+      fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: 500,
+          receiptId: 'booking_' + Date.now(),
+          customer: { name, phone }
+        })
+      })
+      .then(r => r.json())
+      .then(order => {
+        if (!order.ok) throw new Error(order.error || 'Order creation failed');
+        
+        const options = {
+          key: order.keyId,
+          amount: order.amount,
+          currency: 'INR',
+          order_id: order.orderId,
+          name: 'CareConnect360',
+          description: service,
+          prefill: { name, contact: phone },
+          theme: { color: '#1A8A7B' },
+          modal: {
+            ondismiss: () => {
+              btn.classList.remove('btn-loading');
+              btn.disabled = false;
+              showToast('Payment cancelled', 'Your slot has not been confirmed yet.', 'info');
+            }
+          },
+          handler: function(resp) {
+            showToast('Payment successful', 'Verifying your booking…', 'success');
+            
+            fetch('/api/submit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'booking',
+                name,
+                phone,
+                service,
+                date,
+                payment_id: resp.razorpay_payment_id,
+                razorpay_order_id: resp.razorpay_order_id,
+                razorpay_signature: resp.razorpay_signature,
+                payment_status: 'Paid'
+              })
+            })
+            .then(() => {
+              btn.classList.remove('btn-loading');
+              btn.disabled = false;
+              showToast('Booking confirmed! 🎉', 'Our team will call you within 30 minutes.', 'success');
+              document.getElementById('h-name').value = '';
+              document.getElementById('h-phone').value = '';
+              document.getElementById('h-service').value = '';
+              document.getElementById('h-date').value = '';
+            })
+            .catch(() => {
+              btn.classList.remove('btn-loading');
+              btn.disabled = false;
+              showToast('Booking saved', 'Payment complete. Please call us to confirm your slot.', 'success');
+            });
+          }
+        };
+        
+        new Razorpay(options).open();
+      })
+      .catch(err => {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+        showToast('Something went wrong', err.message || 'Please call us to book.', 'error');
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       HERO CALLBACK
+       ═══════════════════════════════════════════════════════════════ */
+    function handleHeroCallback() {
+      const name = sanitize(document.getElementById('cb-name').value);
+      const phone = sanitize(document.getElementById('cb-phone').value);
+      const time = sanitize(document.getElementById('cb-time').value);
+      const msg = sanitize(document.getElementById('cb-msg').value);
+      
+      if (!name) return showToast('Missing field', 'Please enter your name.', 'error');
+      if (!validatePhone(phone)) return showToast('Invalid phone', 'Enter a valid 10-digit Indian mobile number.', 'error');
+      
+      const btn = document.getElementById('cb-submit-btn');
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+      
+      fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'callback',
+          name,
+          phone,
+          preferred_time: time,
+          message: msg
+        })
+      })
+      .then(r => r.json())
+      .then(() => {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+        showToast('Request received!', "We'll call you back within 30 minutes.", 'success');
+        document.getElementById('cb-name').value = '';
+        document.getElementById('cb-phone').value = '';
+        document.getElementById('cb-msg').value = '';
+      })
+      .catch(() => {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+        showToast('Received', 'We got your request. Expect a call shortly.', 'success');
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       STRIP CALLBACK
+       ═══════════════════════════════════════════════════════════════ */
+    function handleStripCallback() {
+      const phone = sanitize(document.getElementById('strip-phone').value);
+      
+      if (!validatePhone(phone)) {
+        return showToast('Invalid number', 'Enter a valid 10-digit Indian mobile number.', 'error');
+      }
+      
+      fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'callback',
+          name: 'Quick callback',
+          phone
+        })
+      })
+      .then(() => {
+        document.getElementById('strip-phone').value = '';
+        showToast('Done!', "We'll call you back within 30 minutes.", 'success');
+      })
+      .catch(() => {
+        showToast('Got it!', 'Expect a call from us shortly.', 'success');
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       APPLY MODAL
+       ═══════════════════════════════════════════════════════════════ */
+    function openApplyModal(e) {
+      if (e) e.preventDefault();
+      document.getElementById('apply-modal').classList.add('open');
+    }
+
+    function closeApplyModal(e) {
+      if (e.target === document.getElementById('apply-modal')) {
+        document.getElementById('apply-modal').classList.remove('open');
+      }
+    }
+
+    function openBookingModal(e) {
+      if (e) e.preventDefault();
+      document.getElementById('booking-fields').scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+      document.getElementById('h-name').focus();
+    }
+
+    function handleApplication() {
+      const name = sanitize(document.getElementById('app-name').value);
+      const phone = sanitize(document.getElementById('app-phone').value);
+      const email = sanitize(document.getElementById('app-email').value);
+      const qual = sanitize(document.getElementById('app-qual').value);
+      const city = sanitize(document.getElementById('app-city').value);
+      const exp = sanitize(document.getElementById('app-exp').value);
+      const msg = sanitize(document.getElementById('app-msg').value);
+      
+      if (!name) return showToast('Missing field', 'Please enter your full name.', 'error');
+      if (!validatePhone(phone)) return showToast('Invalid phone', 'Enter a valid 10-digit Indian mobile number.', 'error');
+      if (!validateEmail(email)) return showToast('Invalid email', 'Please enter a valid email address.', 'error');
+      if (!qual) return showToast('Select qualification', 'Please choose your nursing qualification.', 'error');
+      if (!city) return showToast('Missing field', 'Please enter your city or area.', 'error');
+      
+      const btn = document.getElementById('apply-btn');
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+      
+      fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'application',
+          name,
+          phone,
+          email,
+          qualification: qual,
+          experience: exp,
+          city,
+          message: msg
+        })
+      })
+      .then(r => r.json())
+      .then(() => {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+        document.getElementById('apply-modal').classList.remove('open');
+        showToast('Application submitted!', "We'll review it and contact you within 24 hours.", 'success');
+      })
+      .catch(() => {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+        document.getElementById('apply-modal').classList.remove('open');
+        showToast('Received!', 'We have your application. Expect a call soon.', 'success');
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       FAQ ACCORDION
+       ═══════════════════════════════════════════════════════════════ */
+    function toggleFaq(btn) {
+      const answer = btn.nextElementSibling;
+      const isOpen = btn.classList.contains('open');
+      
+      document.querySelectorAll('.faq-q.open').forEach(b => {
+        b.classList.remove('open');
+        b.setAttribute('aria-expanded', 'false');
+        b.nextElementSibling.classList.remove('open');
+      });
+      
+      if (!isOpen) {
+        btn.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+        answer.classList.add('open');
+      }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       MOBILE MENU
+       ═══════════════════════════════════════════════════════════════ */
+    function toggleMobileMenu() {
+      showToast('Menu', 'Navigation: Services, How It Works, Why Us, For Nurses, FAQ', 'info');
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       KEYBOARD ACCESSIBILITY
+       ═══════════════════════════════════════════════════════════════ */
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        document.getElementById('apply-modal').classList.remove('open');
+      }
+    });
+  </script>
+</body>
+</html>
