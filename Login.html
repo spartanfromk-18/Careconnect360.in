@@ -1,234 +1,68 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="robots" content="noindex, nofollow">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self';
-             script-src 'self' 'unsafe-inline';
-             style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-             font-src 'self' https://fonts.gstatic.com;
-             img-src 'self' data:;
-             connect-src 'self';
-             frame-src 'none';">
-  <title>Admin Login — CareConnect</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --color-primary: #0056b3;
-      --color-primary-hover: #004494;
-      --color-background: #f8f9fa;
-      --color-foreground: #212529;
-      --color-muted: #6c757d;
-      --color-border: #dee2e6;
-      --color-error: #dc3545;
-      --radius-lg: 12px;
-      --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 10px 15px rgba(0,0,0,0.03);
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Inter', sans-serif;
-      background: var(--color-background);
-      color: var(--color-foreground);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .login-card {
-      background: white;
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-md);
-      padding: 40px;
-      width: 100%;
-      max-width: 400px;
-      border: 1px solid var(--color-border);
-    }
-    .logo { text-align: center; margin-bottom: 32px; }
-    .logo-text { font-size: 24px; font-weight: 800; color: var(--color-foreground); }
-    .logo-text .accent { color: var(--color-primary); }
-    .badge {
-      font-size: 10px; background: var(--color-primary); color: white;
-      padding: 2px 6px; border-radius: 4px; margin-left: 6px;
-      vertical-align: middle; font-weight: 600; letter-spacing: 0.5px;
-    }
-    h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; text-align: center; }
-    .subtitle { font-size: 14px; color: var(--color-muted); text-align: center; margin-bottom: 32px; }
-    .form-group { margin-bottom: 20px; }
-    label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: var(--color-foreground); }
-    input[type="password"] {
-      width: 100%; padding: 12px 16px; border: 1px solid var(--color-border);
-      border-radius: 8px; font-size: 16px; font-family: inherit;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    input[type="password"]:focus {
-      outline: none; border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
-    }
-    .btn {
-      width: 100%; padding: 12px; background: var(--color-primary); color: white;
-      border: none; border-radius: 8px; font-size: 16px; font-weight: 600;
-      cursor: pointer; transition: background 0.2s; font-family: inherit;
-    }
-    .btn:hover:not(:disabled) { background: var(--color-primary-hover); }
-    .btn:disabled { opacity: 0.7; cursor: not-allowed; }
-    .error-msg {
-      background: #fef2f2; border: 1px solid #fecaca; color: var(--color-error);
-      padding: 12px; border-radius: 8px; font-size: 14px; margin-bottom: 20px;
-      display: none; text-align: center;
-    }
-    .error-msg.show { display: block; }
-    .footer-text { text-align: center; font-size: 12px; color: var(--color-muted); margin-top: 32px; }
-    .spinner {
-      display: inline-block; width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,0.3); border-radius: 50%;
-      border-top-color: white; animation: spin 0.8s linear infinite;
-      margin-right: 8px; vertical-align: middle;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-       
-    /* ── Enterprise Toast Notifications ─────────────────────────── */
-    .toast-container {
-      position: fixed; top: 24px; right: 24px; z-index: 9999;
-      display: flex; flex-direction: column; gap: 12px; pointer-events: none;
-    }
-    .toast {
-      background: white; color: #1a1a1a; padding: 16px 24px; border-radius: 12px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.05);
-      display: flex; align-items: center; gap: 12px; min-width: 300px; max-width: 400px;
-      border-left: 4px solid #10b981; pointer-events: auto;
-      transform: translateX(120%); opacity: 0;
-      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
-    }
-    .toast.show { transform: translateX(0); opacity: 1; }
-    .toast.error { border-left-color: #ef4444; }
-    .toast.info { border-left-color: #3b82f6; }
-    .toast-icon { font-size: 20px; flex-shrink: 0; }
-    .toast-content { flex: 1; }
-    .toast-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
-    .toast-message { font-size: 13px; color: #6b7280; line-height: 1.4; }
-  </style>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login — CareConnect</title>
+    <!-- REMOVED: Dead Razorpay checkout.js script that was blocked by CSP and added dead weight -->
+    <style>
+        :root { --brand-blue: #0056b3; --brand-dark: #004494; --bg-light: #f4f7f6; }
+        body { font-family: system-ui, -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: var(--bg-light); color: #333; }
+        .login-box { background: white; padding: 2.5rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 400px; text-align: center; border: 1px solid #eaeaea; }
+        h1 { color: var(--brand-blue); margin: 0 0 0.5rem 0; font-size: 1.8rem; letter-spacing: -0.5px; }
+        h2 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; color: #666; margin: 0 0 1.5rem 0; font-weight: 600; }
+        p { color: #555; font-size: 0.95rem; margin-bottom: 1.5rem; }
+        input { width: 100%; padding: 12px; margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 1rem; transition: border-color 0.2s; }
+        input:focus { outline: none; border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(0,86,179,0.1); }
+        button { width: 100%; padding: 14px; background: var(--brand-blue); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: var(--brand-dark); }
+        .footer { font-size: 0.75rem; color: #888; margin-top: 2rem; line-height: 1.5; }
+        .error { color: #dc3545; font-size: 0.85rem; min-height: 1.2em; margin-top: -0.5rem; margin-bottom: 1rem; }
+    </style>
 </head>
 <body>
-  <div class="login-card">
-    <div class="logo">
-      <div class="logo-text">Care<span class="accent">Connect</span><span class="badge">ADMIN</span></div>
+    <div class="login-box">
+        <h1>CareConnect</h1>
+        <h2>ADMIN</h2>
+        <p>Secure Administrator Access</p>
+        <form id="login-form">
+            <input type="password" id="password" placeholder="Administrator Password" required autocomplete="current-password">
+            <button type="submit" id="login-btn">Authenticate</button>
+        </form>
+        <p class="error" id="error-msg"></p>
+        <div class="footer">
+            Protected by enterprise-grade encryption.<br>Unauthorized access is strictly prohibited.
+        </div>
     </div>
-    <h1>Secure Administrator Access</h1>
-    <p class="subtitle">Enter your credentials to access the management dashboard.</p>
-    
-    <div class="error-msg" id="error-msg" role="alert"></div>
-    
-    <form id="login-form">
-      <div class="form-group">
-        <label for="password">Administrator Password</label>
-        <input type="password" id="password" name="password" autocomplete="current-password" required autofocus>
-      </div>
-      <button type="submit" class="btn" id="submit-btn">
-        <span id="btn-text">Authenticate</span>
-      </button>
-    </form>
-    
-    <p class="footer-text">Protected by enterprise-grade encryption.<br>Unauthorized access is strictly prohibited.</p>
-  </div>
-    
+
     <script>
-    (function() {
-      'use strict';
-      
-      const form = document.getElementById('login-form');
-      const passwordInput = document.getElementById('password');
-      const submitBtn = document.getElementById('submit-btn');
-      const btnText = document.getElementById('btn-text');
-      const errorMsg = document.getElementById('error-msg');
-      
-      /* ── 1. THE ENTERPRISE TOAST SYSTEM ─────────────────────── */
-      const Toast = {
-        show: function(title, message, type = 'success', duration = 5000) {
-          const container = document.getElementById('toast-container');
-          if (!container) return;
-          const icons = { success: '✅', error: '❌', info: 'ℹ️' };
-          const toast = document.createElement('div');
-          toast.className = `toast ${type}`;
-          toast.innerHTML = `
-            <div class="toast-icon">${icons[type] || '🔔'}</div>
-            <div class="toast-content">
-              <div class="toast-title">${title}</div>
-              <div class="toast-message">${message}</div>
-            </div>
-          `;
-          container.appendChild(toast);
-          requestAnimationFrame(() => toast.classList.add('show'));
-          setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 400);
-          }, duration);
-        }
-      };
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pwd = document.getElementById('password').value;
+            const errEl = document.getElementById('error-msg');
+            const btn = document.getElementById('login-btn');
+            
+            errEl.textContent = '';
+            btn.disabled = true;
+            btn.textContent = 'Authenticating...';
 
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('error') === 'unauthorized') showError('Session expired or unauthorized. Please log in again.');
-      else if (params.get('error') === 'expired') showError('Your session has expired. Please log in again.');
-
-      function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add('show'); }
-      function hideError() { errorMsg.classList.remove('show'); }
-
-      function setLoading(isLoading) {
-        submitBtn.disabled = isLoading;
-        passwordInput.disabled = isLoading;
-        btnText.innerHTML = isLoading ? '<span class="spinner"></span> Authenticating...' : 'Authenticate';
-      }
-
-      form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        hideError();
-        setLoading(true);
-
-        const password = passwordInput.value;
-        if (!password) { showError('Please enter your password.'); setLoading(false); return; }
-
-        try {
-          const response = await fetch('/api/admin-login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: password })
-          });
-
-          const data = await response.json().catch(() => ({}));
-
-          if (response.status === 429) {
-            showError('Too many login attempts. Please wait 5 minutes.');
-            setLoading(false); return;
-          }
-
-          if (!response.ok || !data.ok || !data.token) {
-            showError(data.error || 'Invalid credentials. Access denied.');
-            setLoading(false); return;
-          }
-
-          // ── 2. SUCCESS! TRIGGER TOAST & REDIRECT ──────────────
-          sessionStorage.setItem('adminToken', data.token);
-          
-          // Show the high-end success notification
-          Toast.show('Access Granted', 'Welcome back, Administrator.', 'success', 2000);
-
-          // Wait 1 second so the user sees the toast, then redirect
-          setTimeout(() => {
-            window.location.replace('/admin');
-          }, 1000);
-
-        } catch (err) {
-          showError('Network error. Please check your connection.');
-          setLoading(false);
-        }
-      });
-    })();
-  </script>
-    <div class="toast-container" id="toast-container"></div>
+            try {
+                const res = await fetch('/api/admin-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pwd })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Authentication failed');
+                
+                sessionStorage.setItem('admin_token', data.token);
+                window.location.href = '/admin.html';
+            } catch (err) {
+                errEl.textContent = err.message;
+                btn.disabled = false;
+                btn.textContent = 'Authenticate';
+            }
+        });
+    </script>
 </body>
 </html>

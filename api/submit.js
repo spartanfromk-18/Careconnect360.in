@@ -1,11 +1,8 @@
  /**
- * POST /api/submit
- * Enterprise-grade form submission handler with server-side payment verification.
- * Fixes: [CRIT-1] Form handler logic, [CRIT-2] Server-side payment verification.
- * 
- * @security Rate Limiting, CORS, Server-Side Payment Verification, PII Hashing
- */
-
+POST /api/submit
+Enterprise-grade form submission handler with server-side payment verification.
+@security Rate Limiting, CORS, Server-Side Payment Verification, PII Hashing, Atomic Idempotency
+*/
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import { Ratelimit } from "@upstash/ratelimit";
@@ -19,7 +16,6 @@ const REQUIRED_ENV = [
   'AIRTABLE_BOOKINGS_TABLE', 'AIRTABLE_CALLBACKS_TABLE', 'AIRTABLE_APPS_TABLE',
   'RESEND_API_KEY', 'ADMIN_EMAIL'
 ];
-
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) throw new Error(`[submit] FATAL: missing ${key}`);
 }
@@ -45,14 +41,13 @@ const limiter = new Ratelimit({
 });
 
 /* ── Helper Functions ────────────────────────────────────────── */
-
 function hashPII(data) {
   return crypto.createHash('sha256').update(String(data || '')).digest('hex').slice(0, 16);
 }
 
 function sanitize(str) {
   if (typeof str !== 'string') return '';
-  return str.replace(/[<>"'&]/g, c => ({ '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":"&#039;", '&':'&amp;' })[c]).trim();
+  return str.replace(/[<>"'&]/g, c => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '&': '&amp;' })[c]).trim();
 }
 
 function setCors(res, reqOrigin) {
@@ -106,14 +101,12 @@ async function sendResend(to, subject, html) {
 export default async function handler(req, res) {
   const reqOrigin = req.headers['origin'] || '';
   setCors(res, reqOrigin);
-
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
   // 1. Rate Limiting
   const rawIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
   const ipKey = hashPII(rawIp);
-  
   const { success } = await limiter.limit(ipKey);
   if (!success) {
     return res.status(429).json({ error: 'Too many requests. Try again in 5 minutes.' });
@@ -134,7 +127,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid submission type.' });
   }
 
-  // 4. Extract & Sanitize Fields (Mapping frontend FormData to safe strings)
+  // 4. Extract & Sanitize Fields
   const name = sanitize(body.name || body.FullName || '');
   const email = sanitize(body.email || body.Email || '');
   const phone = sanitize(body.phone || body.Phone || '');
@@ -159,25 +152,38 @@ export default async function handler(req, res) {
         return res.status(402).json({ error: 'Payment verification required.' });
       }
 
-      // [CRIT-2] Server-side payment verification
+      // [CRITICAL FIX] Atomic Payment ID Claim (Prevents Replay Attacks)
+      // We claim the payment ID in Redis BEFORE writing to Airtable.
+      const claimed = await redis.set(`payment_used:${payment_id}`, '1', { nx: true, ex: 86400 });
+      if (!claimed) {
+        console.error('[submit] Payment ID replay attempt blocked:', payment_id, logContext);
+        return res.status(409).json({ error: 'This payment has already been used for a booking.' });
+      }
+
+      // Server-side payment verification
       let payment;
       try {
         payment = await razorpay.payments.fetch(payment_id);
       } catch (err) {
+        // Rollback the Redis claim if Razorpay fetch fails completely
+        await redis.del(`payment_used:${payment_id}`);
         console.error('[submit] Razorpay fetch error:', err.message, logContext);
         return res.status(402).json({ error: 'Payment could not be verified.' });
       }
 
       // Strict Assertions
       if (payment.status !== 'captured') {
+        await redis.del(`payment_used:${payment_id}`);
         console.error('[submit] Payment not captured:', payment.status, logContext);
         return res.status(402).json({ error: 'Payment was not successfully captured.' });
       }
       if (payment.amount !== EXPECTED_BOOKING_FEE_PAISE) {
+        await redis.del(`payment_used:${payment_id}`);
         console.error('[submit] Amount mismatch:', payment.amount, logContext);
         return res.status(402).json({ error: 'Payment amount mismatch.' });
       }
       if (payment.currency !== 'INR') {
+        await redis.del(`payment_used:${payment_id}`);
         return res.status(402).json({ error: 'Invalid currency.' });
       }
 
@@ -193,7 +199,7 @@ export default async function handler(req, res) {
         Timestamp: new Date().toISOString()
       });
 
-      // Send Emails (Promise.allSettled ensures one failure doesn't block the other)
+      // Send Emails
       const customerHtml = `<p>Hi ${name},</p><p>We have received your booking fee of ₹500. Our care coordinator will contact you shortly at ${phone}.</p>`;
       const adminHtml = `<p>New paid booking received.</p><p>Name: ${name}<br>Phone: ${phone}<br>Service: ${service}</p>`;
       
@@ -241,7 +247,6 @@ export default async function handler(req, res) {
       console.log('[submit] Application success:', logContext);
       return res.status(200).json({ ok: true });
     }
-
   } catch (error) {
     console.error('[submit] Unhandled error:', error.message, logContext);
     return res.status(500).json({ error: 'An internal error occurred. Please try again later.' });

@@ -2,14 +2,16 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "functions": {
-    "api/*.js": { "maxDuration": 15 }
+    "api/**/*.js": {
+      "maxDuration": 15
+    }
   },
-  "routes": [
-    { "src": "/api/submit",           "dest": "/api/submit.js" },
-    { "src": "/api/admin-login",      "dest": "/api/admin-login.js" },
-    { "src": "/api/admin-verify",     "dest": "/api/admin-verify.js" },
-    { "src": "/api/create-order",     "dest": "/api/create-order.js" },
-    { "src": "/api/webhook-razorpay", "dest": "/api/webhook-razorpay.js" }
+  "rewrites": [
+    { "source": "/api/submit", "destination": "/api/submit.js" },
+    { "source": "/api/admin-login", "destination": "/api/admin-login.js" },
+    { "source": "/api/admin-verify", "destination": "/api/admin-verify.js" },
+    { "source": "/api/create-order", "destination": "/api/create-order.js" },
+    { "source": "/api/webhook-razorpay", "destination": "/api/webhook-razorpay.js" }
   ],
   "headers": [
     {
@@ -22,20 +24,12 @@
     {
       "source": "/admin",
       "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-src 'none';"
-        },
         { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, private" }
       ]
     },
     {
       "source": "/login",
       "headers": [
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-src 'none';"
-        },
         { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, private" }
       ]
     },
@@ -46,12 +40,12 @@
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://translate.google.com https://translate.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://translate.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://translate.google.com https://translate.googleapis.com https://www.gstatic.com https://cdn.b12.io; connect-src 'self' https://translate.googleapis.com; frame-src 'none';"
         },
-        { "key": "X-Frame-Options",           "value": "DENY" },
-        { "key": "X-Content-Type-Options",    "value": "nosniff" },
-        { "key": "X-XSS-Protection",          "value": "1; mode=block" },
-        { "key": "Referrer-Policy",           "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
-        { "key": "Permissions-Policy",        "value": "camera=(), microphone=(), geolocation=()" }
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
       ]
     }
   ]
