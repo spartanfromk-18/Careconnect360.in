@@ -10,6 +10,7 @@
     { "source": "/api/submit", "destination": "/api/submit.js" },
     { "source": "/api/admin-login", "destination": "/api/admin-login.js" },
     { "source": "/api/admin-verify", "destination": "/api/admin-verify.js" },
+    { "source": "/api/admin-logout", "destination": "/api/admin-logout.js" },
     { "source": "/api/create-order", "destination": "/api/create-order.js" },
     { "source": "/api/webhook-razorpay", "destination": "/api/webhook-razorpay.js" }
   ],

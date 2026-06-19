@@ -16,6 +16,18 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
 if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error('CRITICAL: JWT_SECRET must be at least 32 characters.');
 if (!ADMIN_PASSWORD_HASH) throw new Error('CRITICAL: ADMIN_PASSWORD_HASH must be defined.');
 
+/* ── IP Allowlist ─────────────────────────────────────────────── */      
+const ADMIN_ALLOWED_IPS = (process.env.ADMIN_ALLOWED_IPS || '')
+  .split(',')
+  .map(ip => ip.trim())
+  .filter(Boolean);
+
+function isIpAllowed(req) {
+  if (ADMIN_ALLOWED_IPS.length === 0) return true;
+  const rawIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || '';
+  return ADMIN_ALLOWED_IPS.includes(rawIp);
+}
+
 /* ── Rate limiter ────────────────────────────────────────────── */
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
@@ -44,6 +56,10 @@ export default async function handler(req, res) {
   setCorsHeaders(res, reqOrigin);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+  
+  if (!isIpAllowed(req)) {                                     
+    return res.status(403).json({ error: 'Access denied.' });  
+  }    
 
   const rawIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
   const ipKey = crypto.createHash('sha256').update(rawIp).digest('hex').slice(0, 16);
@@ -75,10 +91,10 @@ export default async function handler(req, res) {
   }
 
   const token = jwt.sign(
-    { role: 'admin' },
-    JWT_SECRET,
-    { expiresIn: '12h', algorithm: 'HS256', issuer: 'careconnect360' }
-  );
+  { role: 'admin', jti: crypto.randomUUID() },
+  JWT_SECRET,
+  { expiresIn: '12h', algorithm: 'HS256', issuer: 'careconnect360' }
+);
   
   logEvent({ event: 'AUTH_SUCCESS', ipKey }, 'INFO');
   return res.status(200).json({ ok: true, token });
