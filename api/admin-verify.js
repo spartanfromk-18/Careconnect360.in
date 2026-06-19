@@ -3,6 +3,18 @@
 const JWT_SECRET = process.env.JWT_SECRET;
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
 
+/* ── IP Allowlist ─────────────────────────────────────────────── */
+const ADMIN_ALLOWED_IPS = (process.env.ADMIN_ALLOWED_IPS || '')
+  .split(',')
+  .map(ip => ip.trim())
+  .filter(Boolean);
+
+function isIpAllowed(req) {
+  if (ADMIN_ALLOWED_IPS.length === 0) return true;
+  const rawIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || '';
+  return ADMIN_ALLOWED_IPS.includes(rawIp);
+}
+
 if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error('CRITICAL: JWT_SECRET must be at least 32 characters.');
 if (!ALLOWED_ORIGIN) throw new Error('CRITICAL: ALLOWED_ORIGIN must be explicitly defined.');
 
@@ -33,6 +45,10 @@ export default async function handler(req, res) {
   setCorsHeaders(res, reqOrigin);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
+   
+  if (!isIpAllowed(req)) {
+    return res.status(403).json({ error: 'Access denied.' });
+  }
 
   const authHeader = req.headers['authorization'] || '';
   if (!authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing authorization header.' });
