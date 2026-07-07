@@ -78,13 +78,29 @@
                 <button class="btn hidden" id="load-more-applications" onclick="loadMore('applications')">Load More Applications</button>
             </div>
         </section>
+
+        <section id="payments-section">
+            <h2>
+                Payment Transactions Log
+                <button class="btn btn-sm" onclick="fetchTableData('payments')">Refresh</button>
+            </h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th>Payment ID</th><th>Amount</th><th>Status</th><th>Created At</th></tr></thead>
+                    <tbody id="payments-tbody"><tr><td colspan="4" style="text-align:center;">📥 Loading...</td></tr></tbody>
+                </table>
+            </div>
+            <div class="load-more-container">
+                <button class="btn hidden" id="load-more-payments" onclick="loadMore('payments')">Load More Payments</button>
+            </div>
+        </section>
     </div>
 
     <script>
         const state = {
             token: sessionStorage.getItem('admin_token'),
-            offsets: { bookings: null, callbacks: null, applications: null },
-            data: { bookings: [], callbacks: [], applications: [] },
+            offsets: { bookings: null, callbacks: null, applications: null, payments: null },
+            data: { bookings: [], callbacks: [], applications: [], payments: [] },
             limit: 50
         };
 
@@ -113,6 +129,14 @@
             tbody.appendChild(tr);
         }
 
+        function resolveCellValue(rec, col) {
+            if (col && typeof col === 'object' && !Array.isArray(col)) {
+                if (typeof col.render === 'function') return col.render(rec);
+                return rec[col.key];
+            }
+            return rec[col];
+        }
+
         function renderTable(tbodyId, records, columns) {
             const tbody = document.getElementById(tbodyId);
             tbody.innerHTML = '';
@@ -130,8 +154,7 @@
                 const tr = document.createElement('tr');
                 columns.forEach(col => {
                     const td = document.createElement('td');
-                    // SAFE: textContent strictly prevents Stored XSS
-                    td.textContent = emptyOr(rec[col]); 
+                    td.textContent = emptyOr(resolveCellValue(rec, col));
                     tr.appendChild(td);
                 });
                 tbody.appendChild(tr);
@@ -140,7 +163,7 @@
 
         async function fetchTableData(type, append = false) {
             const tbodyId = `${type}-tbody`;
-            const colSpan = type === 'bookings' ? 7 : type === 'callbacks' ? 4 : 8;
+            const colSpan = type === 'bookings' ? 7 : type === 'callbacks' ? 4 : type === 'applications' ? 8 : 4;
             
             if (!append) {
                 clearTable(tbodyId, colSpan);
@@ -184,7 +207,16 @@
                 const columns = {
                     bookings: ['Timestamp', 'Name', 'CareType', 'Service', 'Location', 'Date', 'Notes'],
                     callbacks: ['Timestamp', 'Name', 'Phone', 'PreferredTime'],
-                    applications: ['Timestamp', 'FirstName', 'Email', 'Phone', 'MNC_Registration', 'Experience', 'Speciality', 'Message']
+                    applications: ['Timestamp', 'FirstName', 'Email', 'Phone', 'MNC_Registration', 'Experience', 'Speciality', 'Message'],
+                    payments: [
+                        { key: 'payment_id', render: rec => emptyOr(rec.payment_id) },
+                        { key: 'amount_paise', render: rec => {
+                            const amount = Number(rec.amount_paise);
+                            return Number.isFinite(amount) ? `₹${(amount / 100).toFixed(2)}` : emptyOr(rec.amount_paise);
+                        } },
+                        { key: 'status', render: rec => emptyOr(rec.status) },
+                        { key: 'created_at', render: rec => emptyOr(rec.created_at) }
+                    ]
                 };
 
                 renderTable(tbodyId, state.data[type], columns[type]);
@@ -209,6 +241,7 @@
         fetchTableData('bookings');
         fetchTableData('callbacks');
         fetchTableData('applications');
+        fetchTableData('payments');
     </script>
 </body>
 </html>

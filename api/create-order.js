@@ -108,9 +108,9 @@ export default async function handler(req, res) {
       notes: { requestId, platform: 'CareConnect360' }
     };
 
-    if (customer?.email) orderOptions.customer = { email: customer.email };
-    if (customer?.phone) orderOptions.customer = { ...orderOptions.customer, contact: customer.phone };
-    if (customer?.name) orderOptions.customer = { ...orderOptions.customer, name: customer.name };
+    if (customer?.email) orderOptions.customer = { ...(orderOptions.customer || {}), email: customer.email };
+    if (customer?.phone) orderOptions.customer = { ...(orderOptions.customer || {}), contact: customer.phone };
+    if (customer?.name) orderOptions.customer = { ...(orderOptions.customer || {}), name: customer.name };
 
     const order = await razorpay.orders.create(orderOptions);
 
