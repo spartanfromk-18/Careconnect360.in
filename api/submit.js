@@ -2,12 +2,12 @@
 import Razorpay from 'razorpay';
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { createClient } from '@supabase/supabase-js';
 
 const REQUIRED_ENV = [
   'ALLOWED_ORIGIN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN',
   'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET',
-  'AIRTABLE_API_KEY', 'AIRTABLE_BASE_ID',
-  'AIRTABLE_BOOKINGS_TABLE', 'AIRTABLE_CALLBACKS_TABLE', 'AIRTABLE_APPS_TABLE',
+  'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
   'RESEND_API_KEY', 'ADMIN_EMAIL'
 ];
 for (const key of REQUIRED_ENV) {
@@ -32,11 +32,16 @@ const limiter = new Ratelimit({
   limiter: Ratelimit.slidingWindow(5, '5 m'),
 });
 
+// Supabase client (service role key bypasses RLS — server-side only)
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
 function hashPII(data) {
   return crypto.createHash('sha256').update(String(data || '')).digest('hex').slice(0, 16);
 }
 
-// [FIX] Corrected sanitize function (no spaces in regex/map)
 function sanitize(str) {
   if (typeof str !== 'string') return '';
   return str.replace(/[<>"'&]/g, c => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '&': '&amp;' })[c]).trim();
@@ -49,17 +54,6 @@ function setCors(res, reqOrigin) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Vary', 'Origin');
-}
-
-async function writeAirtable(tableName, fields) {
-  const url = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(tableName)}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields })
-  });
-  if (!res.ok) throw new Error(`Airtable write failed: ${await res.text()}`);
-  return res.json();
 }
 
 async function sendResend(to, subject, html) {
@@ -106,7 +100,6 @@ export default async function handler(req, res) {
     if (type === 'booking') {
       if (!payment_id) return res.status(402).json({ error: 'Payment verification required.' });
 
-      // [FIX] Corrected Redis key (removed space in 'payment_u sed')
       const claimed = await redis.set(`payment_used:${payment_id}`, '1', { nx: true, ex: 86400 });
       if (!claimed) {
         console.error('[submit] Payment ID replay attempt blocked:', payment_id, logContext);
@@ -133,13 +126,31 @@ export default async function handler(req, res) {
         return res.status(402).json({ error: 'Invalid currency.' });
       }
 
-      await writeAirtable(process.env.AIRTABLE_BOOKINGS_TABLE, {
-        Name: name, Phone: phone, Email: email, 
-        CareType: sanitize(body.care_type || ''), Service: service, Location: sanitize(body.location || ''),
-        Date: date, Time: sanitize(body.time || ''), Notes: message,
-        Payment_Status: 'Confirmed - Paid', Payment_ID: payment_id,
-        Amount_Paid: payment.amount / 100, Timestamp: new Date().toISOString()
-      });
+      // [FIX] Bug #1: Store amount_paise directly (no division by 100)
+      // [FIX] Bug #2: Wrap in try/catch and release Redis lock on failure
+      try {
+        const { error } = await supabase.from('bookings').insert({
+          name: name,
+          phone: phone,
+          email: email,
+          care_type: sanitize(body.care_type || ''),
+          service: service,
+          location: sanitize(body.location || ''),
+          scheduled_date: date || null,
+          scheduled_time: sanitize(body.time || ''),
+          notes: message,
+          status: 'confirmed',
+          payment_id: payment_id,
+          amount_paise: payment.amount, // FIX: No division by 100
+          created_at: new Date().toISOString()
+        });
+
+        if (error) throw new Error(`Supabase insert failed: ${error.message}`);
+      } catch (dbError) {
+        console.error('[submit] Database insert failed, releasing Redis lock:', dbError.message, logContext);
+        await redis.del(`payment_used:${payment_id}`);
+        throw dbError; // Re-throw to be caught by outer catch
+      }
 
       const customerHtml = `<p>Hi ${name},</p><p>We have received your booking fee of ₹500. Our care coordinator will contact you shortly at ${phone}.</p>`;
       const adminHtml = `<p>New paid booking received.</p><p>Name: ${name}<br>Phone: ${phone}<br>Service: ${service}</p>`;
@@ -153,9 +164,15 @@ export default async function handler(req, res) {
     }
 
     if (type === 'callback') {
-      await writeAirtable(process.env.AIRTABLE_CALLBACKS_TABLE, {
-        Name: name, Phone: phone, PreferredTime: date, Timestamp: new Date().toISOString()
+      const { error } = await supabase.from('callbacks').insert({
+        name: name,
+        phone: phone,
+        preferred_time: date,
+        created_at: new Date().toISOString()
       });
+
+      if (error) throw new Error(`Supabase callback insert failed: ${error.message}`);
+
       const adminHtml = `<p>New callback request.</p><p>Name: ${name}<br>Phone: ${phone}</p>`;
       await sendResend(process.env.ADMIN_EMAIL, '🔔 New Callback Request', adminHtml).catch(() => {});
       return res.status(200).json({ ok: true });
@@ -165,11 +182,20 @@ export default async function handler(req, res) {
       const firstName = sanitize(body.first_name || body.FirstName || name.split(' ')[0] || '');
       const lastName = sanitize(body.last_name || body.LastName || name.split(' ').slice(1).join(' ') || '');
       
-      await writeAirtable(process.env.AIRTABLE_APPS_TABLE, {
-        FirstName: firstName, LastName: lastName, Email: email, Phone: phone,
-        MNC_Registration: sanitize(body.registration || ''), Experience: sanitize(body.experience || ''),
-        Speciality: sanitize(body.speciality || ''), Message: message, Timestamp: new Date().toISOString()
+      const { error } = await supabase.from('applications').insert({
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone: phone,
+        mnc_registration: sanitize(body.registration || ''),
+        experience: sanitize(body.experience || ''),
+        speciality: sanitize(body.speciality || ''),
+        message: message,
+        status: 'submitted',
+        created_at: new Date().toISOString()
       });
+
+      if (error) throw new Error(`Supabase application insert failed: ${error.message}`);
 
       const applicantHtml = `<p>Hi ${firstName},</p><p>Thank you for applying to CareConnect360. We have received your application.</p>`;
       await sendResend(email, 'Application Received - CareConnect360', applicantHtml).catch(() => {});
