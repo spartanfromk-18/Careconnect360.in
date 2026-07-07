@@ -1,31 +1,39 @@
  /**
-@fileoverview Enterprise-grade Razorpay Webhook Handler for CareConnect360.
-Handles payment events, ensures idempotency via Upstash Redis,
-updates Airtable, and triggers transactional emails via Resend.
-*/
+ * @fileoverview Enterprise-grade Razorpay Webhook Handler for CareConnect360.
+ * Handles payment events, ensures idempotency via Upstash Redis (primary layer)
+ * + Supabase unique constraint (secondary layer), updates Postgres, generates
+ * invoices on payment.captured, and triggers transactional emails via Resend.
+ */
 import crypto from 'crypto';
 import { Redis } from "@upstash/redis";
+import { createClient } from '@supabase/supabase-js';
 
 /* ── Environment Validation (Fail Fast) ──────────────────────── */
 const REQUIRED_ENV = [
-  'RAZORPAY_WEBHOOK_SECRET', 'AIRTABLE_API_KEY', 'AIRTABLE_BASE_ID',
-  'AIRTABLE_PAYMENTS_TABLE', 'RESEND_API_KEY', 'ADMIN_EMAIL',
+  'RAZORPAY_WEBHOOK_SECRET', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
+  'RESEND_API_KEY', 'ADMIN_EMAIL',
   'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'
 ];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) throw new Error(`[webhook] FATAL: missing ${key}`);
 }
 
-/* ── Redis Initialization ─────────────────── */
+/* ── Client Initialization ────────────────────────────────────── */
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
+// Service role key bypasses RLS intentionally — this is a trusted server context.
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
 /**
-Verifies the HMAC-SHA256 signature safely.
-[CRITICAL FIX] Prevents RangeError crash on buffer length mismatch.
-*/
+ * Verifies the HMAC-SHA256 signature safely.
+ * Prevents RangeError crash on buffer length mismatch.
+ */
 function verifySignature(rawBody, signature) {
   try {
     const expected = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET).update(rawBody).digest('hex');
@@ -41,12 +49,19 @@ function logEvent(data, level = 'INFO') {
   console.log(JSON.stringify({ level, timestamp: new Date().toISOString(), source: 'webhook-razorpay', ...data }));
 }
 
-async function syncToAirtable(payload, eventType) {
+/**
+ * Writes/updates the payment record in Supabase.
+ * Uses upsert on webhook_event_id as a DB-level idempotency guard,
+ * layered UNDER the Redis check in the main handler (Redis runs first).
+ * Returns the resolved booking_id (or null if no matching booking found —
+ * expected for callback/application-only flows that never touch payments).
+ */
+async function syncToSupabase(payload, eventType) {
   const payment = payload.payload.payment?.entity || {};
   const refund = payload.payload.refund?.entity || {};
   const paymentId = payment.id || refund.payment_id || 'unknown';
   const orderId = payment.order_id || 'unknown';
-  const amount = payment.amount || refund.amount || 0;
+  const amount = payment.amount || refund.amount || 0; // paise, no conversion — confirmed unit for this table
   const currency = payment.currency || 'INR';
   const notes = payment.notes || {};
 
@@ -56,22 +71,73 @@ async function syncToAirtable(payload, eventType) {
     'refund.created': 'refunded', 'refund.processed': 'refunded'
   };
 
+  // Resolve booking_id via payment_id — the confirmed real join key.
+  // (booking_ref/notes.booking_ref is NOT used — it's populated client-side
+  // but never persisted to the bookings table, so it can't be joined on.)
+  let bookingId = null;
+  if (paymentId !== 'unknown') {
+    const { data: bookingRow, error: lookupErr } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('payment_id', paymentId)
+      .maybeSingle();
+    if (lookupErr) {
+      logEvent({ message: 'Booking lookup failed', error: lookupErr.message, paymentId }, 'ERROR');
+    } else if (bookingRow) {
+      bookingId = bookingRow.id;
+    }
+  }
+
   const fields = {
-    PaymentId: paymentId, OrderId: orderId, EventType: eventType,
-    Amount: amount, Currency: currency, Status: statusMap[eventType] || 'unknown',
-    CustomerEmail: notes.customerEmail || '', CustomerPhone: notes.customerPhone || '',
-    CustomerName: notes.name || '', BookingRef: notes.booking_ref || '',
-    RazorpayNotes: JSON.stringify(notes), Timestamp: new Date().toISOString(),
-    WebhookEventId: payload.id
+    payment_id: paymentId,
+    webhook_event_id: payload.id,
+    booking_id: bookingId,
+    order_id: orderId,
+    event_type: eventType,
+    amount_paise: amount,
+    currency: currency,
+    status: statusMap[eventType] || 'unknown',
+    customer_email: notes.customerEmail || '',
+    customer_phone: notes.customerPhone || '',
+    customer_name: notes.name || '',
+    razorpay_notes: notes,
   };
 
-  const url = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${process.env.AIRTABLE_PAYMENTS_TABLE}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields })
-  });
-  if (!res.ok) throw new Error(`Airtable sync failed: ${await res.text()}`);
+  const { error: upsertErr } = await supabase
+    .from('payments')
+    .upsert(fields, { onConflict: 'webhook_event_id', ignoreDuplicates: true });
+
+  if (upsertErr) throw new Error(`Supabase payment upsert failed: ${upsertErr.message}`);
+
+  // Move the booking to 'confirmed' and generate an invoice — only on
+  // a real capture event, and only if we actually resolved a booking.
+  if (eventType === 'payment.captured' && bookingId) {
+    const { error: statusErr } = await supabase
+      .from('bookings')
+      .update({ status: 'confirmed', updated_at: new Date().toISOString() })
+      .eq('id', bookingId);
+    if (statusErr) logEvent({ message: 'Booking status update failed', error: statusErr.message, bookingId }, 'ERROR');
+
+    const { data: existingInvoice } = await supabase
+      .from('invoices')
+      .select('id')
+      .eq('booking_id', bookingId)
+      .maybeSingle();
+
+    if (!existingInvoice) {
+      const { error: invErr } = await supabase.from('invoices').insert({
+        booking_id: bookingId,
+        customer_id: null, // populated once customer auth (Phase 6) links bookings to a profile
+        subtotal_paise: amount,
+        tax_paise: 0,
+        total_paise: amount,
+        status: 'issued',
+      });
+      if (invErr) logEvent({ message: 'Invoice insert failed', error: invErr.message, bookingId }, 'ERROR');
+    }
+  }
+
+  return bookingId;
 }
 
 async function sendEmail(to, subject, html) {
@@ -86,9 +152,7 @@ async function sendEmail(to, subject, html) {
 
 function getEmailTemplate(type, data) {
   const baseStyle = `font-family: sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto;`;
-  
-  // Note: 'captured' branch removed. submit.js handles customer confirmation synchronously.
-  
+
   if (type === 'failed') {
     return {
       to: process.env.ADMIN_EMAIL,
@@ -118,7 +182,7 @@ export default async function handler(req, res) {
 
   const signature = req.headers['x-razorpay-signature'];
   if (!signature || !verifySignature(rawBody, signature)) {
-    return res.status(400).json({ error: 'Invalid signature' }); 
+    return res.status(400).json({ error: 'Invalid signature' });
   }
 
   const payload = JSON.parse(rawBody);
@@ -127,7 +191,7 @@ export default async function handler(req, res) {
   const payment = payload.payload.payment?.entity || {};
   const logData = { eventId, eventType, paymentId: payment.id, orderId: payment.order_id, amount: payment.amount, currency: payment.currency };
 
-  // [CRITICAL FIX] Atomic Idempotency Check (Fixes TOCTOU race condition)
+  // PRIMARY idempotency layer — Redis, checked first, exactly as in the original code.
   const isDuplicate = await redis.set(`webhook:event:${eventId}`, '1', { nx: true, ex: 86400 });
   if (!isDuplicate) {
     logEvent({ ...logData, message: 'Duplicate webhook ignored' }, 'INFO');
@@ -135,7 +199,7 @@ export default async function handler(req, res) {
   }
 
   const tasks = [];
-  tasks.push(syncToAirtable(payload, eventType).catch(err => logEvent({ ...logData, error: err.message }, 'ERROR')));
+  tasks.push(syncToSupabase(payload, eventType).catch(err => logEvent({ ...logData, error: err.message }, 'ERROR')));
 
   let template = null;
   if (eventType === 'payment.failed') {
