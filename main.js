@@ -167,7 +167,7 @@
       body: JSON.stringify({ 
         amount: amount, 
         receiptId: receiptId,
-        customer: { name: bookingData.name, phone: bookingData.phone || '' }
+        customer: { name: bookingData.name, phone: bookingData.phone || '', email: bookingData.email || '' }
       })
     })
     .then(res => res.json())
