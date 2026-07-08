@@ -2835,7 +2835,6 @@
       </div>
     </div>
   </footer>
-
   <!-- Apply Modal -->
   <div class="modal-backdrop" id="apply-modal" role="dialog" aria-modal="true" aria-label="Apply to join as a nurse" onclick="closeApplyModal(event)">
     <div class="modal">
@@ -2918,14 +2917,13 @@
     </div>
   </div>
   
-  <!-- Scripts -->
-  <script>
+   <script>
     /* ═══════════════════════════════════════════════════════════════
        NAVIGATION — Scroll shadow
        ═══════════════════════════════════════════════════════════════ */
     const nav = document.getElementById('nav');
     let lastScroll = 0;
-    
+
     window.addEventListener('scroll', () => {
       const currentScroll = window.scrollY;
       nav.classList.toggle('scrolled', currentScroll > 20);
@@ -2944,7 +2942,7 @@
         }
       });
     }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
-    
+
     fadeEls.forEach(el => io.observe(el));
 
     /* ═══════════════════════════════════════════════════════════════
@@ -3000,15 +2998,23 @@
 
     /* ═══════════════════════════════════════════════════════════════
        HERO BOOKING — Razorpay Integration
+       [FIX #1] Email is required by api/submit.js for bookings — the
+       original form never collected it, so every real submission was
+       silently rejected with a 400 after a successful payment.
+       This now reads an #h-email field. ADD THIS FIELD TO THE HTML FORM
+       (see note below the script) — it must exist in the markup for
+       document.getElementById('h-email') to work.
        ═══════════════════════════════════════════════════════════════ */
     function handleHeroBooking() {
       const name = sanitize(document.getElementById('h-name').value);
       const phone = sanitize(document.getElementById('h-phone').value);
+      const email = sanitize(document.getElementById('h-email').value); // [FIX #1]
       const service = sanitize(document.getElementById('h-service').value);
       const date = sanitize(document.getElementById('h-date').value);
-      
+
       if (!name) return showToast('Missing field', 'Please enter the patient name.', 'error');
       if (!validatePhone(phone)) return showToast('Invalid phone', 'Enter a valid 10-digit Indian mobile number.', 'error');
+      if (!validateEmail(email)) return showToast('Invalid email', 'Please enter a valid email address — we use this to send your booking confirmation.', 'error'); // [FIX #1]
       if (!service) return showToast('Select a service', 'Please choose the type of care needed.', 'error');
       if (!date) return showToast('Select a date', 'Please choose a start date.', 'error');
 
@@ -3017,19 +3023,27 @@
       btn.disabled = true;
       showToast('Initialising', 'Connecting to secure payment gateway…', 'info');
 
+      // [FIX #4] Idempotency key — create-order.js already supports this
+      // header; the original form never sent it, meaning a double-click
+      // or network retry could create duplicate Razorpay orders.
+      const idempotencyKey = crypto.randomUUID();
+
       fetch('/api/create-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': idempotencyKey // [FIX #4]
+        },
         body: JSON.stringify({
           amount: 500,
           receiptId: 'booking_' + Date.now(),
-          customer: { name, phone }
+          customer: { name, phone, email } // [FIX #1] email now passed to Razorpay order too
         })
       })
       .then(r => r.json())
       .then(order => {
         if (!order.ok) throw new Error(order.error || 'Order creation failed');
-        
+
         const options = {
           key: order.keyId,
           amount: order.amount,
@@ -3037,7 +3051,7 @@
           order_id: order.orderId,
           name: 'CareConnect360',
           description: service,
-          prefill: { name, contact: phone },
+          prefill: { name, contact: phone, email }, // [FIX #1]
           theme: { color: '#1A8A7B' },
           modal: {
             ondismiss: () => {
@@ -3048,7 +3062,7 @@
           },
           handler: function(resp) {
             showToast('Payment successful', 'Verifying your booking…', 'success');
-            
+
             fetch('/api/submit', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -3056,31 +3070,46 @@
                 type: 'booking',
                 name,
                 phone,
+                email, // [FIX #1] — the missing field that caused silent 400s
                 service,
                 date,
                 payment_id: resp.razorpay_payment_id,
                 razorpay_order_id: resp.razorpay_order_id,
-                razorpay_signature: resp.razorpay_signature,
-                payment_status: 'Paid'
+                razorpay_signature: resp.razorpay_signature
               })
             })
-            .then(() => {
+            .then(async r => {
+              const data = await r.json().catch(() => ({}));
+              if (!r.ok) {
+                // [FIX #2] This used to be swallowed and shown as a success
+                // toast. Payment has already been captured at this point —
+                // the customer needs to know to contact support, not
+                // believe they're confirmed when no record was saved.
+                throw new Error(data.error || `Submission failed (status ${r.status})`);
+              }
               btn.classList.remove('btn-loading');
               btn.disabled = false;
               showToast('Booking confirmed! 🎉', 'Our team will call you within 30 minutes.', 'success');
               document.getElementById('h-name').value = '';
               document.getElementById('h-phone').value = '';
+              document.getElementById('h-email').value = ''; // [FIX #1]
               document.getElementById('h-service').value = '';
               document.getElementById('h-date').value = '';
             })
-            .catch(() => {
+            .catch(err => {
+              // [FIX #2] Real error state — payment succeeded, booking
+              // record did not. This is the honest message.
               btn.classList.remove('btn-loading');
               btn.disabled = false;
-              showToast('Booking saved', 'Payment complete. Please call us to confirm your slot.', 'success');
+              showToast(
+                'Payment received — action needed',
+                `Your payment was successful but we could not save your booking automatically (${err.message}). Please call us or WhatsApp your payment ID (${resp.razorpay_payment_id}) so we can confirm your slot manually.`,
+                'error'
+              );
             });
           }
         };
-        
+
         new Razorpay(options).open();
       })
       .catch(err => {
@@ -3091,21 +3120,21 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       HERO CALLBACK
+       HERO CALLBACK — unchanged, no bug found here
        ═══════════════════════════════════════════════════════════════ */
     function handleHeroCallback() {
       const name = sanitize(document.getElementById('cb-name').value);
       const phone = sanitize(document.getElementById('cb-phone').value);
       const time = sanitize(document.getElementById('cb-time').value);
       const msg = sanitize(document.getElementById('cb-msg').value);
-      
+
       if (!name) return showToast('Missing field', 'Please enter your name.', 'error');
       if (!validatePhone(phone)) return showToast('Invalid phone', 'Enter a valid 10-digit Indian mobile number.', 'error');
-      
+
       const btn = document.getElementById('cb-submit-btn');
       btn.classList.add('btn-loading');
       btn.disabled = true;
-      
+
       fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3134,15 +3163,15 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       STRIP CALLBACK
+       STRIP CALLBACK — unchanged, no bug found here
        ═══════════════════════════════════════════════════════════════ */
     function handleStripCallback() {
       const phone = sanitize(document.getElementById('strip-phone').value);
-      
+
       if (!validatePhone(phone)) {
         return showToast('Invalid number', 'Enter a valid 10-digit Indian mobile number.', 'error');
       }
-      
+
       fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3184,6 +3213,7 @@
       document.getElementById('h-name').focus();
     }
 
+    
     function handleApplication() {
       const name = sanitize(document.getElementById('app-name').value);
       const phone = sanitize(document.getElementById('app-phone').value);
@@ -3192,17 +3222,17 @@
       const city = sanitize(document.getElementById('app-city').value);
       const exp = sanitize(document.getElementById('app-exp').value);
       const msg = sanitize(document.getElementById('app-msg').value);
-      
+
       if (!name) return showToast('Missing field', 'Please enter your full name.', 'error');
       if (!validatePhone(phone)) return showToast('Invalid phone', 'Enter a valid 10-digit Indian mobile number.', 'error');
       if (!validateEmail(email)) return showToast('Invalid email', 'Please enter a valid email address.', 'error');
       if (!qual) return showToast('Select qualification', 'Please choose your nursing qualification.', 'error');
       if (!city) return showToast('Missing field', 'Please enter your city or area.', 'error');
-      
+
       const btn = document.getElementById('apply-btn');
       btn.classList.add('btn-loading');
       btn.disabled = true;
-      
+
       fetch('/api/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3211,9 +3241,9 @@
           name,
           phone,
           email,
-          qualification: qual,
+          registration: qual,   // [FIX #3] was never sent before — mnc_registration was always empty
           experience: exp,
-          city,
+          city: city,           // [FIX #3] new distinct field — requires the applications.city column + submit.js update below
           message: msg
         })
       })
@@ -3238,13 +3268,13 @@
     function toggleFaq(btn) {
       const answer = btn.nextElementSibling;
       const isOpen = btn.classList.contains('open');
-      
+
       document.querySelectorAll('.faq-q.open').forEach(b => {
         b.classList.remove('open');
         b.setAttribute('aria-expanded', 'false');
         b.nextElementSibling.classList.remove('open');
       });
-      
+
       if (!isOpen) {
         btn.classList.add('open');
         btn.setAttribute('aria-expanded', 'true');

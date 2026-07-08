@@ -66,6 +66,12 @@ async function sendResend(to, subject, html) {
   if (!res.ok) throw new Error(`Resend failed: ${await res.text()}`);
 }
 
+function getBearerToken(req) {
+  const authorization = req.headers['authorization'] || '';
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : '';
+}
+
 export default async function handler(req, res) {
   const reqOrigin = req.headers['origin'] || '';
   setCors(res, reqOrigin);
@@ -100,6 +106,15 @@ export default async function handler(req, res) {
     if (type === 'booking') {
       if (!payment_id) return res.status(402).json({ error: 'Payment verification required.' });
 
+      let customerId = null;
+      const bearerToken = getBearerToken(req);
+      if (bearerToken) {
+        const { data, error } = await supabase.auth.getUser(bearerToken);
+        if (!error && data?.user?.id) {
+          customerId = data.user.id;
+        }
+      }
+
       const claimed = await redis.set(`payment_used:${payment_id}`, '1', { nx: true, ex: 86400 });
       if (!claimed) {
         console.error('[submit] Payment ID replay attempt blocked:', payment_id, logContext);
@@ -129,21 +144,19 @@ export default async function handler(req, res) {
       // [FIX] Bug #1: Store amount_paise directly (no division by 100)
       // [FIX] Bug #2: Wrap in try/catch and release Redis lock on failure
       try {
-        const { error } = await supabase.from('bookings').insert({
-          name: name,
-          phone: phone,
-          email: email,
-          care_type: sanitize(body.care_type || ''),
-          service: service,
-          location: sanitize(body.location || ''),
-          scheduled_date: date || null,
-          scheduled_time: sanitize(body.time || ''),
-          notes: message,
-          status: 'confirmed',
-          payment_id: payment_id,
-          amount_paise: payment.amount, // FIX: No division by 100
-          created_at: new Date().toISOString()
-        });
+        const { error } = await supabase.from('applications').insert({
+  first_name: firstName,
+  last_name: lastName,
+  email: email,
+  phone: phone,
+  mnc_registration: sanitize(body.registration || ''),
+  experience: sanitize(body.experience || ''),
+  speciality: sanitize(body.speciality || ''),
+  city: sanitize(body.city || ''),   // ← add this line
+  message: message,
+  status: 'submitted',
+  created_at: new Date().toISOString()
+});
 
         if (error) throw new Error(`Supabase insert failed: ${error.message}`);
       } catch (dbError) {
@@ -178,22 +191,23 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    if (type === 'application') {
-      const firstName = sanitize(body.first_name || body.FirstName || name.split(' ')[0] || '');
-      const lastName = sanitize(body.last_name || body.LastName || name.split(' ').slice(1).join(' ') || '');
-      
-      const { error } = await supabase.from('applications').insert({
-        first_name: firstName,
-        last_name: lastName,
-        email: email,
-        phone: phone,
-        mnc_registration: sanitize(body.registration || ''),
-        experience: sanitize(body.experience || ''),
-        speciality: sanitize(body.speciality || ''),
-        message: message,
-        status: 'submitted',
-        created_at: new Date().toISOString()
-      });
+     if (type === 'application') {
+  const firstName = sanitize(body.first_name || body.FirstName || name.split(' ')[0] || '');
+  const lastName = sanitize(body.last_name || body.LastName || name.split(' ').slice(1).join(' ') || '');
+
+  const { error } = await supabase.from('applications').insert({
+    first_name: firstName,
+    last_name: lastName,
+    email: email,
+    phone: phone,
+    mnc_registration: sanitize(body.registration || ''),
+    experience: sanitize(body.experience || ''),
+    speciality: sanitize(body.speciality || ''),
+    city: sanitize(body.city || ''),   // ADD THIS LINE — new field, matches new frontend + new column
+    message: message,
+    status: 'submitted',
+    created_at: new Date().toISOString()
+  });
 
       if (error) throw new Error(`Supabase application insert failed: ${error.message}`);
 
