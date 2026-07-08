@@ -1,9 +1,9 @@
- 
- {
+{
   "name": "careconnect360-api",
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.1",
     "@upstash/ratelimit": "^1.0.1",
     "@upstash/redis": "^1.28.2",
     "bcryptjs": "^3.0.3",
