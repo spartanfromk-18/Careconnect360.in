@@ -111,11 +111,7 @@
             window.location.href = '/login.html';
         });
 
-        // [FIX] Renamed from esc() to emptyOr() to enforce secure naming conventions
-        function emptyOr(val) {
-            if (val === null || val === undefined || String(val).trim() === '') return '—';
-            return val;
-        }
+        const emptyOr = val => val === null || val === undefined || String(val).trim() === '' ? '—' : val;
 
         function clearTable(tbodyId, colSpan) {
             const tbody = document.getElementById(tbodyId);
@@ -129,13 +125,7 @@
             tbody.appendChild(tr);
         }
 
-        function resolveCellValue(rec, col) {
-            if (col && typeof col === 'object' && !Array.isArray(col)) {
-                if (typeof col.render === 'function') return col.render(rec);
-                return rec[col.key];
-            }
-            return rec[col];
-        }
+        const resolveCellValue = (rec, col) => col && typeof col === 'object' && !Array.isArray(col) ? (typeof col.render === 'function' ? col.render(rec) : rec[col.key]) : rec[col];
 
         function renderTable(tbodyId, records, columns) {
             const tbody = document.getElementById(tbodyId);
@@ -233,11 +223,8 @@
             }
         }
 
-        function loadMore(type) {
-            fetchTableData(type, true);
-        }
+        const loadMore = type => fetchTableData(type, true);
 
-        // Initial Load
         fetchTableData('bookings');
         fetchTableData('callbacks');
         fetchTableData('applications');

@@ -1,14 +1,7 @@
- /**
- * @fileoverview Enterprise-grade Razorpay Webhook Handler for CareConnect360.
- * Handles payment events, ensures idempotency via Upstash Redis (primary layer)
- * + Supabase unique constraint (secondary layer), updates Postgres, generates
- * invoices on payment.captured, and triggers transactional emails via Resend.
- */
 import crypto from 'crypto';
 import { Redis } from "@upstash/redis";
 import { createClient } from '@supabase/supabase-js';
 
-/* ── Environment Validation (Fail Fast) ──────────────────────── */
 const REQUIRED_ENV = [
   'RAZORPAY_WEBHOOK_SECRET', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
   'RESEND_API_KEY', 'ADMIN_EMAIL',
@@ -18,23 +11,17 @@ for (const key of REQUIRED_ENV) {
   if (!process.env[key]) throw new Error(`[webhook] FATAL: missing ${key}`);
 }
 
-/* ── Client Initialization ────────────────────────────────────── */
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
-// Service role key bypasses RLS intentionally — this is a trusted server context.
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-/**
- * Verifies the HMAC-SHA256 signature safely.
- * Prevents RangeError crash on buffer length mismatch.
- */
-function verifySignature(rawBody, signature) {
+const verifySignature = (rawBody, signature) => {
   try {
     const expected = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET).update(rawBody).digest('hex');
     const sigBuf = Buffer.from(signature || '');
@@ -43,19 +30,10 @@ function verifySignature(rawBody, signature) {
   } catch {
     return false;
   }
-}
+};
 
-function logEvent(data, level = 'INFO') {
-  console.log(JSON.stringify({ level, timestamp: new Date().toISOString(), source: 'webhook-razorpay', ...data }));
-}
+const logEvent = (data, level = 'INFO') => console.log(JSON.stringify({ level, timestamp: new Date().toISOString(), source: 'webhook-razorpay', ...data }));
 
-/**
- * Writes/updates the payment record in Supabase.
- * Uses upsert on webhook_event_id as a DB-level idempotency guard,
- * layered UNDER the Redis check in the main handler (Redis runs first).
- * Returns the resolved booking_id (or null if no matching booking found —
- * expected for callback/application-only flows that never touch payments).
- */
 async function syncToSupabase(payload, eventType) {
   const payment = payload.payload.payment?.entity || {};
   const refund = payload.payload.refund?.entity || {};
@@ -71,9 +49,6 @@ async function syncToSupabase(payload, eventType) {
     'refund.created': 'refunded', 'refund.processed': 'refunded'
   };
 
-  // Resolve booking_id via payment_id — the confirmed real join key.
-  // (booking_ref/notes.booking_ref is NOT used — it's populated client-side
-  // but never persisted to the bookings table, so it can't be joined on.)
   let bookingId = null;
   if (paymentId !== 'unknown') {
     const { data: bookingRow, error: lookupErr } = await supabase
@@ -109,8 +84,6 @@ async function syncToSupabase(payload, eventType) {
 
   if (upsertErr) throw new Error(`Supabase payment upsert failed: ${upsertErr.message}`);
 
-  // Move the booking to 'confirmed' and generate an invoice — only on
-  // a real capture event, and only if we actually resolved a booking.
   if (eventType === 'payment.captured' && bookingId) {
     const { error: statusErr } = await supabase
       .from('bookings')
@@ -170,7 +143,6 @@ function getEmailTemplate(type, data) {
   return null;
 }
 
-/* ── Main Handler ─────────────────────────────────────────────── */
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -191,7 +163,6 @@ export default async function handler(req, res) {
   const payment = payload.payload.payment?.entity || {};
   const logData = { eventId, eventType, paymentId: payment.id, orderId: payment.order_id, amount: payment.amount, currency: payment.currency };
 
-  // PRIMARY idempotency layer — Redis, checked first, exactly as in the original code.
   const isDuplicate = await redis.set(`webhook:event:${eventId}`, '1', { nx: true, ex: 86400 });
   if (!isDuplicate) {
     logEvent({ ...logData, message: 'Duplicate webhook ignored' }, 'INFO');

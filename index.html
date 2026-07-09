@@ -6,15 +6,12 @@
   <meta name="description" content="CareConnect360 — Premium, verified at-home nursing and healthcare services across India. Book qualified nurses within 4 hours.">
   <title>CareConnect360 — Premium Home Care & Nursing Services</title>
   
-  <!-- Preload critical fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
-  <!-- Razorpay SDK -->
   <script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
 
-  <!-- Sentry Error Tracking -->
 <script
   src="https://js-de.sentry-cdn.com/8c95014606a2fe163620b886475ee784.min.js"
   crossorigin="anonymous"
@@ -2142,14 +2139,12 @@
 </head>
 <body>
 
-  <!-- Ambient Background -->
   <div class="ambient-blobs" aria-hidden="true">
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
     <div class="blob blob-3"></div>
   </div>
 
-  <!-- Navigation -->
   <nav class="nav" id="nav" role="navigation" aria-label="Main navigation">
     <div class="nav-inner">
       <a href="#" class="nav-logo" aria-label="CareConnect360 home">
@@ -2180,7 +2175,6 @@
     </div> 
   </nav>
     
-  <!-- Hero Section -->
   <section class="hero" aria-label="Hero — Book nursing care at home">
     <div class="container hero-inner">
       <div class="hero-content">
@@ -2220,7 +2214,6 @@
         </div>
       </div>
 
-      <!-- Booking Panel -->
       <div class="booking-panel" role="form" aria-label="Book a home care service" id="book">
         <div class="booking-panel-header">
           <h2 class="booking-panel-title">Book your nurse</h2>
@@ -2231,7 +2224,6 @@
           <button class="booking-tab" role="tab" aria-selected="false" onclick="switchHeroTab(this,'callback-fields')">Request Callback</button>
         </div>
 
-        <!-- Booking Fields -->
         <div id="booking-fields">
           <div class="form-row">
             <div class="form-group">
@@ -2241,6 +2233,10 @@
             <div class="form-group">
               <label class="form-label" for="h-phone">Phone</label>
               <input class="form-input" id="h-phone" type="tel" placeholder="+91 XXXXX XXXXX" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="h-email">Email</label>
+              <input class="form-input" id="h-email" type="email" placeholder="your@email.com" required />
             </div>
           </div>
           <div class="form-group">
@@ -2284,7 +2280,6 @@
           <p class="booking-fee-note">Secure payment via Razorpay · <strong>100% refundable</strong> if we can't place a nurse</p>
         </div>
 
-        <!-- Callback Fields -->
         <div id="callback-fields" style="display:none">
           <div class="form-group">
             <label class="form-label" for="cb-name">Your Name</label>
@@ -2320,7 +2315,6 @@
     </div>
   </section>
 
-  <!-- Stats Bar -->
   <div class="stats-bar" role="region" aria-label="Key statistics">
     <div class="stats-inner">
       <div class="stat-item fade-up">
@@ -2342,7 +2336,6 @@
     </div>
   </div>
 
-  <!-- Services Section -->
   <section class="section" id="services" aria-label="Our care services">
     <div class="container">
       <div class="fade-up">
@@ -2446,7 +2439,6 @@
     </div>
   </section>
 
-  <!-- How It Works Section -->
   <section class="section section-alt" id="how" aria-label="How CareConnect360 works">
     <div class="container">
       <div class="how-header fade-up">
@@ -2481,7 +2473,6 @@
     </div>
   </section>
 
-  <!-- For Nurses Section -->
   <section class="section section-dark" id="nurses" aria-label="Join as a nurse">
     <div class="container">
       <div class="nurses-inner">
@@ -2555,7 +2546,6 @@
     </div>
   </section>
 
-  <!-- Trust Section -->
   <section class="section" id="trust" aria-label="Why families trust CareConnect360">
     <div class="container">
       <div class="fade-up">
@@ -2595,7 +2585,6 @@
     </div>
   </section>
 
-  <!-- Testimonials Section -->
   <section class="section section-dark" aria-label="Patient testimonials">
     <div class="container">
       <div class="fade-up">
@@ -2649,7 +2638,6 @@
     </div>
   </section>
 
-  <!-- FAQ Section -->
   <section class="section section-alt" id="faq" aria-label="Frequently asked questions">
     <div class="container" style="max-width:800px">
       <div class="fade-up">
@@ -2715,7 +2703,6 @@
     </div>
   </section>
 
-  <!-- Callback Strip -->
   <div class="callback-strip" role="complementary" aria-label="Request a callback">
     <div class="container">
       <div class="callback-inner">
@@ -2731,7 +2718,6 @@
     </div>
   </div>
 
-  <!-- Footer -->
   <footer class="footer" role="contentinfo">
     <div class="container">
       <div class="footer-grid">
@@ -2835,7 +2821,6 @@
       </div>
     </div>
   </footer>
-  <!-- Apply Modal -->
   <div class="modal-backdrop" id="apply-modal" role="dialog" aria-modal="true" aria-label="Apply to join as a nurse" onclick="closeApplyModal(event)">
     <div class="modal">
       <button class="modal-close" onclick="document.getElementById('apply-modal').classList.remove('open')" aria-label="Close">
@@ -2904,7 +2889,6 @@
     </div>
   </div>
 
-  <!-- Toast -->
   <div id="toast" role="alert" aria-live="polite">
     <div class="toast-icon" id="toast-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2918,21 +2902,12 @@
   </div>
   
    <script>
-    /* ═══════════════════════════════════════════════════════════════
-       NAVIGATION — Scroll shadow
-       ═══════════════════════════════════════════════════════════════ */
     const nav = document.getElementById('nav');
-    let lastScroll = 0;
 
     window.addEventListener('scroll', () => {
-      const currentScroll = window.scrollY;
-      nav.classList.toggle('scrolled', currentScroll > 20);
-      lastScroll = currentScroll;
+      nav.classList.toggle('scrolled', window.scrollY > 20);
     }, { passive: true });
 
-    /* ═══════════════════════════════════════════════════════════════
-       SCROLL ANIMATIONS — Intersection Observer
-       ═══════════════════════════════════════════════════════════════ */
     const fadeEls = document.querySelectorAll('.fade-up');
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e, i) => {
@@ -2945,9 +2920,6 @@
 
     fadeEls.forEach(el => io.observe(el));
 
-    /* ═══════════════════════════════════════════════════════════════
-       FORM HELPERS
-       ═══════════════════════════════════════════════════════════════ */
     const dateInputs = document.querySelectorAll('input[type="date"]');
     const today = new Date().toISOString().split('T')[0];
     dateInputs.forEach(d => d.min = today);
@@ -2964,9 +2936,6 @@
       });
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       TOAST NOTIFICATIONS
-       ═══════════════════════════════════════════════════════════════ */
     let toastTimer;
     function showToast(title, msg, type = 'info') {
       const el = document.getElementById('toast');
@@ -2979,9 +2948,6 @@
       }, 5000);
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       VALIDATION HELPERS
-       ═══════════════════════════════════════════════════════════════ */
     function sanitize(str) {
       const d = document.createElement('div');
       d.appendChild(document.createTextNode(String(str || '')));
@@ -2996,19 +2962,10 @@
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       HERO BOOKING — Razorpay Integration
-       [FIX #1] Email is required by api/submit.js for bookings — the
-       original form never collected it, so every real submission was
-       silently rejected with a 400 after a successful payment.
-       This now reads an #h-email field. ADD THIS FIELD TO THE HTML FORM
-       (see note below the script) — it must exist in the markup for
-       document.getElementById('h-email') to work.
-       ═══════════════════════════════════════════════════════════════ */
     function handleHeroBooking() {
       const name = sanitize(document.getElementById('h-name').value);
       const phone = sanitize(document.getElementById('h-phone').value);
-      const email = sanitize(document.getElementById('h-email').value); // [FIX #1]
+      const email = sanitize(document.getElementById('h-email').value);
       const service = sanitize(document.getElementById('h-service').value);
       const date = sanitize(document.getElementById('h-date').value);
 
@@ -3023,21 +2980,18 @@
       btn.disabled = true;
       showToast('Initialising', 'Connecting to secure payment gateway…', 'info');
 
-      // [FIX #4] Idempotency key — create-order.js already supports this
-      // header; the original form never sent it, meaning a double-click
-      // or network retry could create duplicate Razorpay orders.
       const idempotencyKey = crypto.randomUUID();
 
       fetch('/api/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Idempotency-Key': idempotencyKey // [FIX #4]
+          'X-Idempotency-Key': idempotencyKey
         },
         body: JSON.stringify({
           amount: 500,
           receiptId: 'booking_' + Date.now(),
-          customer: { name, phone, email } // [FIX #1] email now passed to Razorpay order too
+          customer: { name, phone, email }
         })
       })
       .then(r => r.json())
@@ -3051,7 +3005,7 @@
           order_id: order.orderId,
           name: 'CareConnect360',
           description: service,
-          prefill: { name, contact: phone, email }, // [FIX #1]
+          prefill: { name, contact: phone, email },
           theme: { color: '#1A8A7B' },
           modal: {
             ondismiss: () => {
@@ -3070,7 +3024,7 @@
                 type: 'booking',
                 name,
                 phone,
-                email, // [FIX #1] — the missing field that caused silent 400s
+                email,
                 service,
                 date,
                 payment_id: resp.razorpay_payment_id,
@@ -3081,10 +3035,6 @@
             .then(async r => {
               const data = await r.json().catch(() => ({}));
               if (!r.ok) {
-                // [FIX #2] This used to be swallowed and shown as a success
-                // toast. Payment has already been captured at this point —
-                // the customer needs to know to contact support, not
-                // believe they're confirmed when no record was saved.
                 throw new Error(data.error || `Submission failed (status ${r.status})`);
               }
               btn.classList.remove('btn-loading');
@@ -3092,13 +3042,11 @@
               showToast('Booking confirmed! 🎉', 'Our team will call you within 30 minutes.', 'success');
               document.getElementById('h-name').value = '';
               document.getElementById('h-phone').value = '';
-              document.getElementById('h-email').value = ''; // [FIX #1]
+              document.getElementById('h-email').value = '';
               document.getElementById('h-service').value = '';
               document.getElementById('h-date').value = '';
             })
             .catch(err => {
-              // [FIX #2] Real error state — payment succeeded, booking
-              // record did not. This is the honest message.
               btn.classList.remove('btn-loading');
               btn.disabled = false;
               showToast(
@@ -3119,9 +3067,6 @@
       });
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       HERO CALLBACK — unchanged, no bug found here
-       ═══════════════════════════════════════════════════════════════ */
     function handleHeroCallback() {
       const name = sanitize(document.getElementById('cb-name').value);
       const phone = sanitize(document.getElementById('cb-phone').value);
@@ -3162,9 +3107,6 @@
       });
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       STRIP CALLBACK — unchanged, no bug found here
-       ═══════════════════════════════════════════════════════════════ */
     function handleStripCallback() {
       const phone = sanitize(document.getElementById('strip-phone').value);
 
@@ -3190,9 +3132,6 @@
       });
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       APPLY MODAL
-       ═══════════════════════════════════════════════════════════════ */
     function openApplyModal(e) {
       if (e) e.preventDefault();
       document.getElementById('apply-modal').classList.add('open');
@@ -3213,7 +3152,6 @@
       document.getElementById('h-name').focus();
     }
 
-    
     function handleApplication() {
       const name = sanitize(document.getElementById('app-name').value);
       const phone = sanitize(document.getElementById('app-phone').value);
@@ -3262,9 +3200,6 @@
       });
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       FAQ ACCORDION
-       ═══════════════════════════════════════════════════════════════ */
     function toggleFaq(btn) {
       const answer = btn.nextElementSibling;
       const isOpen = btn.classList.contains('open');
@@ -3282,16 +3217,10 @@
       }
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       MOBILE MENU
-       ═══════════════════════════════════════════════════════════════ */
     function toggleMobileMenu() {
       showToast('Menu', 'Navigation: Services, How It Works, Why Us, For Nurses, FAQ', 'info');
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       KEYBOARD ACCESSIBILITY
-       ═══════════════════════════════════════════════════════════════ */
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
         document.getElementById('apply-modal').classList.remove('open');

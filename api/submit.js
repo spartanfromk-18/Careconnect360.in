@@ -38,25 +38,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-function hashPII(data) {
-  return crypto.createHash('sha256').update(String(data || '')).digest('hex').slice(0, 16);
-}
+const hashPII = data => crypto.createHash('sha256').update(String(data || '')).digest('hex').slice(0, 16);
 
-function sanitize(str) {
-  if (typeof str !== 'string') return '';
-  return str.replace(/[<>"'&]/g, c => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '&': '&amp;' })[c]).trim();
-}
+const sanitize = str => typeof str !== 'string' ? '' : str.replace(/[<>"'&]/g, c => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '&': '&amp;' })[c]).trim();
 
-function setCors(res, reqOrigin) {
+const setCors = (res, reqOrigin) => {
   if (reqOrigin === process.env.ALLOWED_ORIGIN) {
     res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN);
   }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Vary', 'Origin');
-}
+};
 
-async function sendResend(to, subject, html) {
+const sendResend = async (to, subject, html) => {
   if (!to) return;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -64,13 +59,13 @@ async function sendResend(to, subject, html) {
     body: JSON.stringify({ from: 'CareConnect <noreply@careconnect360.in>', to: [to], subject, html })
   });
   if (!res.ok) throw new Error(`Resend failed: ${await res.text()}`);
-}
+};
 
-function getBearerToken(req) {
+const getBearerToken = req => {
   const authorization = req.headers['authorization'] || '';
   const match = authorization.match(/^Bearer\s+(.+)$/i);
   return match ? match[1].trim() : '';
-}
+};
 
 export default async function handler(req, res) {
   const reqOrigin = req.headers['origin'] || '';
@@ -106,15 +101,6 @@ export default async function handler(req, res) {
     if (type === 'booking') {
       if (!payment_id) return res.status(402).json({ error: 'Payment verification required.' });
 
-      let customerId = null;
-      const bearerToken = getBearerToken(req);
-      if (bearerToken) {
-        const { data, error } = await supabase.auth.getUser(bearerToken);
-        if (!error && data?.user?.id) {
-          customerId = data.user.id;
-        }
-      }
-
       const claimed = await redis.set(`payment_used:${payment_id}`, '1', { nx: true, ex: 86400 });
       if (!claimed) {
         console.error('[submit] Payment ID replay attempt blocked:', payment_id, logContext);
@@ -141,28 +127,22 @@ export default async function handler(req, res) {
         return res.status(402).json({ error: 'Invalid currency.' });
       }
 
-      // [FIX] Bug #1: Store amount_paise directly (no division by 100)
-      // [FIX] Bug #2: Wrap in try/catch and release Redis lock on failure
       try {
-        const { error } = await supabase.from('applications').insert({
-  first_name: firstName,
-  last_name: lastName,
-  email: email,
-  phone: phone,
-  mnc_registration: sanitize(body.registration || ''),
-  experience: sanitize(body.experience || ''),
-  speciality: sanitize(body.speciality || ''),
-  city: sanitize(body.city || ''),   // ← add this line
-  message: message,
-  status: 'submitted',
-  created_at: new Date().toISOString()
-});
+        const { error } = await supabase.from('bookings').insert({
+          name,
+          service,
+          phone,
+          email,
+          amount_paise: EXPECTED_BOOKING_FEE_PAISE,
+          payment_id,
+          created_at: new Date().toISOString()
+        });
 
         if (error) throw new Error(`Supabase insert failed: ${error.message}`);
       } catch (dbError) {
         console.error('[submit] Database insert failed, releasing Redis lock:', dbError.message, logContext);
         await redis.del(`payment_used:${payment_id}`);
-        throw dbError; // Re-throw to be caught by outer catch
+        throw dbError;
       }
 
       const customerHtml = `<p>Hi ${name},</p><p>We have received your booking fee of ₹500. Our care coordinator will contact you shortly at ${phone}.</p>`;
@@ -191,23 +171,23 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-     if (type === 'application') {
-  const firstName = sanitize(body.first_name || body.FirstName || name.split(' ')[0] || '');
-  const lastName = sanitize(body.last_name || body.LastName || name.split(' ').slice(1).join(' ') || '');
+    if (type === 'application') {
+      const firstName = sanitize(body.first_name || body.FirstName || name.split(' ')[0] || '');
+      const lastName = sanitize(body.last_name || body.LastName || name.split(' ').slice(1).join(' ') || '');
 
-  const { error } = await supabase.from('applications').insert({
-    first_name: firstName,
-    last_name: lastName,
-    email: email,
-    phone: phone,
-    mnc_registration: sanitize(body.registration || ''),
-    experience: sanitize(body.experience || ''),
-    speciality: sanitize(body.speciality || ''),
-    city: sanitize(body.city || ''),   // ADD THIS LINE — new field, matches new frontend + new column
-    message: message,
-    status: 'submitted',
-    created_at: new Date().toISOString()
-  });
+      const { error } = await supabase.from('applications').insert({
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        phone,
+        mnc_registration: sanitize(body.registration || ''),
+        experience: sanitize(body.experience || ''),
+        speciality: sanitize(body.speciality || ''),
+        city: sanitize(body.city || ''),
+        message,
+        status: 'submitted',
+        created_at: new Date().toISOString()
+      });
 
       if (error) throw new Error(`Supabase application insert failed: ${error.message}`);
 

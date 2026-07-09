@@ -26,10 +26,7 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
-const createRateLimiter = () => {
-  const config = CONFIG.RATE_LIMITS.STANDARD;
-  return new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(config.requests, config.window) });
-};
+const createRateLimiter = () => new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(CONFIG.RATE_LIMITS.STANDARD.requests, CONFIG.RATE_LIMITS.STANDARD.window) });
 
 const SecurityUtils = {
   generateRequestId: () => `req_${crypto.randomBytes(16).toString('hex')}`,
@@ -53,7 +50,7 @@ const SecurityUtils = {
   }
 };
 
-function setSecurityHeaders(res, reqOrigin) {
+const setSecurityHeaders = (res, reqOrigin) => {
   if (reqOrigin === process.env.ALLOWED_ORIGIN) {
     res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN);
     res.setHeader('Vary', 'Origin');
@@ -61,7 +58,7 @@ function setSecurityHeaders(res, reqOrigin) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Idempotency-Key');
   res.setHeader('Access-Control-Max-Age', '86400');
-}
+};
 
 export default async function handler(req, res) {
   const requestId = SecurityUtils.generateRequestId();
@@ -82,12 +79,9 @@ export default async function handler(req, res) {
       if (existingOrder) return res.status(200).json(JSON.parse(existingOrder));
     }
 
-    const rateLimiter = createRateLimiter();
-    const { success, limit, reset } = await rateLimiter.limit(ipKey);
+    const { success, reset } = await createRateLimiter().limit(ipKey);
 
-    if (!success) {
-      return res.status(429).json({ error: 'Too many payment requests.', requestId, retryAfter: Math.ceil((reset - Date.now()) / 1000) });
-    }
+    if (!success) return res.status(429).json({ error: 'Too many payment requests.', requestId, retryAfter: Math.ceil((reset - Date.now()) / 1000) });
 
     let body;
     try { body = typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}'); } 
