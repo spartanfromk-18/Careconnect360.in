@@ -4,6 +4,10 @@
   "functions": {
     "api/**/*.js": {
       "maxDuration": 15
+    },
+    "api/webhook-razorpay.js": {
+      "bodyParser": false,
+      "maxDuration": 15
     }
   },
   "headers": [

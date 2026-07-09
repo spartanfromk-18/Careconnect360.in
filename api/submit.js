@@ -61,12 +61,6 @@ const sendResend = async (to, subject, html) => {
   if (!res.ok) throw new Error(`Resend failed: ${await res.text()}`);
 };
 
-const getBearerToken = req => {
-  const authorization = req.headers['authorization'] || '';
-  const match = authorization.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1].trim() : '';
-};
-
 export default async function handler(req, res) {
   const reqOrigin = req.headers['origin'] || '';
   setCors(res, reqOrigin);
