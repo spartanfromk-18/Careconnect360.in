@@ -146,9 +146,12 @@ function getEmailTemplate(type, data) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-   const chunks = [];
-for await (const chunk of req) chunks.push(chunk);
-const rawBody = Buffer.concat(chunks).toString('utf8');
+     
+   export const config = {
+     api: {
+     bodyParser: false,
+  },
+};
 if (!rawBody) return res.status(400).json({ error: 'Invalid payload' });  
 
   const signature = req.headers['x-razorpay-signature'];
@@ -168,21 +171,32 @@ if (!rawBody) return res.status(400).json({ error: 'Invalid payload' });
     return res.status(200).json({ ok: true });
   }
 
-  const tasks = [];
-  tasks.push(syncToSupabase(payload, eventType).catch(err => logEvent({ ...logData, error: err.message }, 'ERROR')));
-
-  let template = null;
+     let template = null;
   if (eventType === 'payment.failed') {
     template = getEmailTemplate('failed', { ...payment, errorDesc: payment.error_description, errorCode: payment.error_code });
   } else if (eventType === 'refund.processed') {
     template = getEmailTemplate('refund', payload.payload.refund?.entity || {});
   }
 
-  if (template) {
-    tasks.push(sendEmail(template.to, template.subject, template.html).catch(err => logEvent({ ...logData, error: err.message }, 'ERROR')));
+  // 1. CRITICAL PATH: The Ledger (Supabase)
+  // If this fails, we MUST return 500 so Razorpay's exponential backoff retries the webhook.
+  try {
+    await syncToSupabase(payload, eventType);
+    logEvent({ ...logData, message: 'Supabase ledger synced successfully' }, 'INFO');
+  } catch (err) {
+    logEvent({ ...logData, error: `CRITICAL LEDGER FAILURE: ${err.message}` }, 'ERROR');
+    return res.status(500).json({ error: 'Ledger sync failed, retrying later' }); 
   }
 
-  await Promise.allSettled(tasks);
+  // 2. BEST-EFFORT PATH: Notifications (Resend)
+  // If email fails, the payment is still safely recorded in Supabase.
+  if (template) {
+    sendEmail(template.to, template.subject, template.html)
+      .then(() => logEvent({ ...logData, message: 'Admin alert email sent' }, 'INFO'))
+      .catch(err => logEvent({ ...logData, error: `Email failed: ${err.message}` }, 'WARN'));
+  }
+
+  // 3. SUCCESS: Everything critical passed.
   logEvent(logData, 'INFO');
   return res.status(200).json({ ok: true });
 }

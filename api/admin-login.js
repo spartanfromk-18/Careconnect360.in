@@ -67,5 +67,9 @@ export default async function handler(req, res) {
   const token = jwt.sign({ role: 'admin', jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '12h', algorithm: 'HS256', issuer: 'careconnect360' });
 
   logEvent({ event: 'AUTH_SUCCESS', ipKey }, 'INFO');
-  return res.status(200).json({ ok: true, token });
+  
+  res.setHeader('Set-Cookie', `admin_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${12 * 60 * 60}`);
+  
+  logEvent({ event: 'AUTH_SUCCESS', ipKey }, 'INFO');
+  return res.status(200).json({ ok: true }); // Do NOT send the token in the body
 }
