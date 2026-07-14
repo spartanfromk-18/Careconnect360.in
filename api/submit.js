@@ -142,31 +142,31 @@ export default async function handler(req, res) {
         return res.status(402).json({ error: 'Invalid currency.' });
       }
 
-      try {
+            try {
         const { error } = await supabase.from('bookings').insert({
-          name,
-          phone,
-          email,
-          // [RESTORED — these were silently dropped. Without them every
-          // booking loses its actual care details on save.]
+          name, phone, email,
           care_type: sanitize(body.care_type || ''),
-          service,
-          location: sanitize(body.location || ''),
-          scheduled_date: date || null,
-          scheduled_time: sanitize(body.time || ''),
-          notes: message,
-          status: 'confirmed',
-          payment_id,
-          customer_id: customerId, // [RESTORED]
-          amount_paise: payment.amount, // uses the verified captured amount, not the constant
+          service, location: sanitize(body.location || ''),
+          scheduled_date: date || null, scheduled_time: sanitize(body.time || ''),
+          notes: message, status: 'confirmed', payment_id,
+          customer_id: customerId, amount_paise: payment.amount,
           created_at: new Date().toISOString()
         });
 
         if (error) throw new Error(`Supabase insert failed: ${error.message}`);
       } catch (dbError) {
-        console.error('[submit] Database insert failed, releasing Redis lock:', dbError.message, logContext);
+        console.error('[submit] Database insert failed, initiating auto-refund:', dbError.message, logContext);
+        
+         
+        try {
+          await razorpay.payments.refund(payment_id, { amount: payment.amount });
+          logEvent({ event: 'AUTO_REFUND_SUCCESS', payment_id }, 'INFO');
+        } catch (refundErr) {
+          logEvent({ event: 'AUTO_REFUND_FAILED', payment_id, error: refundErr.message }, 'CRITICAL');
+        }
+        
         await redis.del(`payment_used:${payment_id}`);
-        throw dbError;
+        return res.status(500).json({ error: 'Booking failed. A full refund has been initiated.' });
       }
 
       const customerHtml = `<p>Hi ${name},</p><p>We have received your booking fee of ₹500. Our care coordinator will contact you shortly at ${phone}.</p>`;
