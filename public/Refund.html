@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CareConnect360 Refund Policy — Full refund guarantee if we can't place a verified nurse within 4 hours. Transparent, no-questions-asked refund process.">
+  <title>Refund Policy — CareConnect360</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --navy: #0D1B2A;
+      --navy-mid: #162336;
+      --teal: #1A8A7B;
+      --teal-light: #22A898;
+      --teal-dark: #146B60;
+      --teal-bg: #E8F5F2;
+      --gold: #D4A84B;
+      --cream: #F7F5F0;
+      --white: #FFFFFF;
+      --text-dark: #0D1B2A;
+      --text-mid: #2D3748;
+      --text-soft: #4A5568;
+      --text-muted: #718096;
+      --border: #E2E8F0;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 20px;
+      --shadow-md: 0 4px 16px rgba(13, 27, 42, 0.08);
+      --shadow-lg: 0 12px 40px rgba(13, 27, 42, 0.12);
+      --font-display: 'Cormorant Garamond', Georgia, serif;
+      --font-ui: 'Inter', system-ui, sans-serif;
+      --transition: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+    
+    body {
+      font-family: var(--font-ui);
+      background: var(--cream);
+      color: var(--text-dark);
+      line-height: 1.6;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+    .page-header {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+      padding: 120px 0 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .page-header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 80% at 70% 50%, rgba(26, 138, 123, 0.15) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 32px;
+      transition: color var(--transition);
+    }
+
+    .back-link:hover { color: white; }
+
+    .page-title {
+      font-family: var(--font-display);
+      font-size: clamp(36px, 5vw, 56px);
+      font-weight: 300;
+      color: white;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+
+    .page-subtitle {
+      font-size: 17px;
+      color: rgba(255, 255, 255, 0.65);
+      max-width: 600px;
+    }
+
+    .content {
+      padding: 80px 0 120px;
+    }
+
+    .section {
+      margin-bottom: 64px;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 28px;
+      background: var(--teal);
+      border-radius: 2px;
+    }
+
+    .section p {
+      font-size: 15px;
+      color: var(--text-soft);
+      line-height: 1.8;
+      margin-bottom: 16px;
+    }
+
+    .guarantee-card {
+      background: linear-gradient(135deg, var(--teal-bg) 0%, white 100%);
+      border: 2px solid var(--teal);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      margin: 40px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .guarantee-card::before {
+      content: '✓';
+      position: absolute;
+      top: -20px;
+      right: -20px;
+      width: 120px;
+      height: 120px;
+      background: var(--teal);
+      color: white;
+      font-size: 60px;
+      font-weight: 700;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.1;
+    }
+
+    .guarantee-badge {
+      display: inline-block;
+      background: var(--teal);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 100px;
+      margin-bottom: 16px;
+    }
+
+    .guarantee-title {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--teal-dark);
+      margin-bottom: 12px;
+    }
+
+    .guarantee-text {
+      font-size: 16px;
+      color: var(--text-mid);
+      line-height: 1.7;
+    }
+
+    .timeline {
+      position: relative;
+      padding-left: 32px;
+      margin: 32px 0;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--border);
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 32px;
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -32px;
+      top: 4px;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border: 3px solid var(--teal);
+      border-radius: 50%;
+      box-shadow: var(--shadow-md);
+    }
+
+    .timeline-item.active::before {
+      background: var(--teal);
+    }
+
+    .timeline-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 6px;
+    }
+
+    .timeline-desc {
+      font-size: 14px;
+      color: var(--text-soft);
+      line-height: 1.6;
+    }
+
+    .info-box {
+      background: white;
+      border-left: 4px solid var(--gold);
+      border-radius: var(--radius-sm);
+      padding: 24px;
+      margin: 24px 0;
+      box-shadow: var(--shadow-md);
+    }
+
+    .info-box-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .info-box p {
+      font-size: 14px;
+      color: var(--text-soft);
+      margin: 0;
+    }
+
+    .contact-section {
+      background: var(--navy);
+      border-radius: var(--radius-lg);
+      padding: 48px;
+      text-align: center;
+      margin-top: 64px;
+    }
+
+    .contact-section h3 {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 600;
+      color: white;
+      margin-bottom: 12px;
+    }
+
+    .contact-section p {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 24px;
+    }
+
+    .contact-links {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .contact-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--teal);
+      color: white;
+      padding: 14px 28px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all var(--transition);
+    }
+
+    .contact-btn:hover {
+      background: var(--teal-light);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(26, 138, 123, 0.3);
+    }
+
+    .contact-btn.secondary {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .contact-btn.secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .footer {
+      background: var(--navy);
+      padding: 40px 0;
+      text-align: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .footer p {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .footer a {
+      color: rgba(255, 255, 255, 0.6);
+      text-decoration: none;
+      margin: 0 12px;
+    }
+
+    .footer a:hover { color: white; }
+
+    @media (max-width: 768px) {
+      .page-header { padding: 100px 0 60px; }
+      .content { padding: 60px 0 80px; }
+      .guarantee-card { padding: 28px; }
+      .contact-section { padding: 32px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="page-header">
+    <div class="container">
+      <a href="index.html" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back to Home
+      </a>
+      <h1 class="page-title">Refund Policy</h1>
+      <p class="page-subtitle">Our commitment to fair, transparent, and hassle-free refunds for every CareConnect360 booking.</p>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="container">
+
+      <!-- 4-Hour Guarantee -->
+      <section class="section">
+        <div class="guarantee-card">
+          <span class="guarantee-badge">Our Promise</span>
+          <h2 class="guarantee-title">4-Hour Placement Guarantee</h2>
+          <p class="guarantee-text">
+            If we cannot place a verified, qualified nurse at your doorstep within <strong>4 hours</strong> of your confirmed booking, 
+            you are entitled to a <strong>100% full refund</strong> of your ₹500 booking fee — no questions asked, no hidden conditions.
+          </p>
+        </div>
+      </section>
+
+      <!-- Refund Eligibility -->
+      <section class="section">
+        <h2 class="section-title">When You're Eligible for a Refund</h2>
+        <p>You are eligible for a full refund of your ₹500 booking fee in any of the following situations:</p>
+        
+        <div class="timeline">
+          <div class="timeline-item active">
+            <h3 class="timeline-title">No Nurse Placed Within 4 Hours</h3>
+            <p class="timeline-desc">If our care coordination team cannot match and dispatch a verified nurse to your location within 4 hours of your confirmed booking, you receive an automatic full refund.</p>
+          </div>
+          <div class="timeline-item active">
+            <h3 class="timeline-title">Nurse No-Show</h3>
+            <p class="timeline-desc">If the assigned nurse fails to arrive at the scheduled time without prior communication or valid reason, you are entitled to a full refund plus priority rebooking.</p>
+          </div>
+          <div class="timeline-item active">
+            <h3 class="timeline-title">Service Mismatch</h3>
+            <p class="timeline-desc">If the nurse's qualifications or specialisation significantly differ from what was confirmed in your booking (e.g., you booked ICU care but received general nursing), you may request a full refund.</p>
+          </div>
+          <div class="timeline-item active">
+            <h3 class="timeline-title">Cancellation Before Placement</h3>
+            <p class="timeline-desc">If you cancel your booking before a nurse has been assigned and dispatched, you receive a full refund within 24 hours.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Refund Process -->
+      <section class="section">
+        <h2 class="section-title">How Refunds Work</h2>
+        <p>We process all refunds through Razorpay's secure payment gateway. Here's what to expect:</p>
+        
+        <div class="timeline">
+          <div class="timeline-item">
+            <h3 class="timeline-title">1. Request Initiation</h3>
+            <p class="timeline-desc">Contact our support team via phone, email, or the callback form. Provide your booking reference number (found in your confirmation email).</p>
+          </div>
+          <div class="timeline-item">
+            <h3 class="timeline-title">2. Verification</h3>
+            <p class="timeline-desc">Our team verifies the refund eligibility within 2 business hours. For the 4-hour guarantee, verification is automatic.</p>
+          </div>
+          <div class="timeline-item">
+            <h3 class="timeline-title">3. Refund Processing</h3>
+            <p class="timeline-desc">Once approved, we initiate the refund via Razorpay. You'll receive an email confirmation with the refund transaction ID.</p>
+          </div>
+          <div class="timeline-item">
+            <h3 class="timeline-title">4. Bank Credit</h3>
+            <p class="timeline-desc">Refunds are credited back to your original payment method within 5-7 business days, depending on your bank's processing time.</p>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <h4 class="info-box-title">Processing Time</h4>
+          <p>Refunds are initiated within 24 hours of approval. Credit to your bank account typically takes 5-7 business days. UPI refunds are usually instant.</p>
+        </div>
+      </section>
+
+      <!-- Non-Refundable Cases -->
+      <section class="section">
+        <h2 class="section-title">Non-Refundable Situations</h2>
+        <p>The ₹500 booking fee is non-refundable in the following cases:</p>
+        <ul style="list-style: none; padding: 0; margin: 20px 0;">
+          <li style="padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 12px;">
+            <span style="color: var(--teal); font-weight: 700;">✗</span>
+            <span style="color: var(--text-soft);">Cancellation after a nurse has been successfully placed and has begun service</span>
+          </li>
+          <li style="padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 12px;">
+            <span style="color: var(--teal); font-weight: 700;">✗</span>
+            <span style="color: var(--text-soft);">Dissatisfaction with the nurse's personality or communication style (we offer free replacement instead)</span>
+          </li>
+          <li style="padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 12px;">
+            <span style="color: var(--teal); font-weight: 700;">✗</span>
+            <span style="color: var(--text-soft);">Change of mind after the 4-hour placement window has passed with a successful placement</span>
+          </li>
+        </ul>
+        <p><strong>Note:</strong> The booking fee covers coordination, verification, and matching services. The actual nursing care fees are settled directly with the nurse and are governed by separate terms.</p>
+      </section>
+
+      <!-- Free Replacement -->
+      <section class="section">
+        <h2 class="section-title">Free Nurse Replacement</h2>
+        <p>If you're unsatisfied with the assigned nurse for any reason — whether it's a skills mismatch, communication issues, or any other concern — we offer <strong>free replacement within 4 hours</strong> at no additional booking fee.</p>
+        <p>Simply call our 24/7 support line, and our coordinator will dispatch a replacement nurse immediately. Your original booking fee remains valid for the replacement.</p>
+      </section>
+
+      <!-- Contact Section -->
+      <div class="contact-section">
+        <h3>Need a Refund? We're Here to Help.</h3>
+        <p>Our care coordinators are available 7 days a week, 7am–9pm to assist with refund requests and any other concerns.</p>
+        <div class="contact-links">
+          <a href="tel:+918000000000" class="contact-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+            </svg>
+            Call Support
+          </a>
+          <a href="mailto:careconnect.in.help@gmail.com" class="contact-btn secondary">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+    <polyline points="22,6 12,13 2,6"/>
+  </svg>
+  Email Us
+</a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>© 2026 CareConnect360. All rights reserved. DPDP Act compliant.</p>
+      <div style="margin-top: 16px;">
+        <a href="Privacy.html">Privacy Policy</a>
+        <a href="Terms-conditions.html">Terms of Service</a>
+        <a href="index.html">Home</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

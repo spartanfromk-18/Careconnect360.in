@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login — CareConnect</title>
+    <!-- REMOVED: Dead Razorpay checkout.js script that was blocked by CSP and added dead weight -->
+    <style>
+        :root { --brand-blue: #0056b3; --brand-dark: #004494; --bg-light: #f4f7f6; }
+        body { font-family: system-ui, -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: var(--bg-light); color: #333; }
+        .login-box { background: white; padding: 2.5rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 400px; text-align: center; border: 1px solid #eaeaea; }
+        h1 { color: var(--brand-blue); margin: 0 0 0.5rem 0; font-size: 1.8rem; letter-spacing: -0.5px; }
+        h2 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; color: #666; margin: 0 0 1.5rem 0; font-weight: 600; }
+        p { color: #555; font-size: 0.95rem; margin-bottom: 1.5rem; }
+        input { width: 100%; padding: 12px; margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 1rem; transition: border-color 0.2s; }
+        input:focus { outline: none; border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(0,86,179,0.1); }
+        button { width: 100%; padding: 14px; background: var(--brand-blue); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: var(--brand-dark); }
+        .footer { font-size: 0.75rem; color: #888; margin-top: 2rem; line-height: 1.5; }
+        .error { color: #dc3545; font-size: 0.85rem; min-height: 1.2em; margin-top: -0.5rem; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h1>CareConnect</h1>
+        <h2>ADMIN</h2>
+        <p>Secure Administrator Access</p>
+        <form id="login-form">
+            <input type="password" id="password" placeholder="Administrator Password" required autocomplete="current-password">
+            <button type="submit" id="login-btn">Authenticate</button>
+        </form>
+        <p class="error" id="error-msg"></p>
+        <div class="footer">
+            Protected by enterprise-grade encryption.<br>Unauthorized access is strictly prohibited.
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pwd = document.getElementById('password').value;
+            const errEl = document.getElementById('error-msg');
+            const btn = document.getElementById('login-btn');
+            
+            errEl.textContent = '';
+            btn.disabled = true;
+            btn.textContent = 'Authenticating...';
+
+            try {
+                const res = await fetch('/api/admin-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pwd })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Authentication failed');
+                
+                sessionStorage.setItem('admin_token', data.token);
+                window.location.href = '/admin.html';
+            } catch (err) {
+                errEl.textContent = err.message;
+                btn.disabled = false;
+                btn.textContent = 'Authenticate';
+            }
+        });
+    </script>
+</body>
+</html>
