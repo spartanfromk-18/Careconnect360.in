@@ -6,7 +6,6 @@
       "maxDuration": 10
     },
     "api/webhook-razorpay.js": {
-      "bodyParser": false,
       "maxDuration": 10
     }
   },
