@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "echo 'Skipping build step: Vercel serverless functions compile automatically.'",
+    "build": "mkdir -p public && cp *.html public/ && echo 'Prepared static HTML output in public/'.",
     "start": "echo 'No local start script required for Vercel serverless deployment.'"
   },
   "dependencies": {
