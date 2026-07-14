@@ -1,7 +1,11 @@
-{
+ {
   "name": "careconnect360-api",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "build": "echo 'Skipping build step: Vercel serverless functions compile automatically.'",
+    "start": "echo 'No local start script required for Vercel serverless deployment.'"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.1",
     "@upstash/ratelimit": "^1.0.1",
