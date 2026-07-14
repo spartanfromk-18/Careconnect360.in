@@ -146,11 +146,10 @@ function getEmailTemplate(type, data) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  let rawBody = '';
-  if (typeof req.body === 'string') rawBody = req.body;
-  else if (Buffer.isBuffer(req.body)) rawBody = req.body.toString('utf8');
-  else if (typeof req.body === 'object' && req.body !== null) rawBody = JSON.stringify(req.body);
-  else return res.status(400).json({ error: 'Invalid payload' });
+   const chunks = [];
+for await (const chunk of req) chunks.push(chunk);
+const rawBody = Buffer.concat(chunks).toString('utf8');
+if (!rawBody) return res.status(400).json({ error: 'Invalid payload' });  
 
   const signature = req.headers['x-razorpay-signature'];
   if (!signature || !verifySignature(rawBody, signature)) {

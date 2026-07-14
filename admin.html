@@ -195,9 +195,32 @@
                 }
 
                 const columns = {
-                    bookings: ['Timestamp', 'Name', 'CareType', 'Service', 'Location', 'Date', 'Notes'],
-                    callbacks: ['Timestamp', 'Name', 'Phone', 'PreferredTime'],
-                    applications: ['Timestamp', 'FirstName', 'Email', 'Phone', 'MNC_Registration', 'Experience', 'Speciality', 'Message'],
+                    bookings: [
+                        { key: 'created_at', render: rec => emptyOr(rec.created_at) },
+                        { key: 'name', render: rec => emptyOr(rec.name) },
+                        { key: 'care_type', render: rec => emptyOr(rec.care_type) },
+                        { key: 'service', render: rec => emptyOr(rec.service) },
+                        { key: 'location', render: rec => emptyOr(rec.location) },
+                        { key: 'scheduled_date', render: rec => emptyOr([rec.scheduled_date, rec.scheduled_time].filter(Boolean).join(' ')) },
+                        { key: 'notes', render: rec => emptyOr(rec.notes) }
+                    ],
+                    callbacks: [
+                        { key: 'created_at', render: rec => emptyOr(rec.created_at) },
+                        { key: 'name', render: rec => emptyOr(rec.name) },
+                        { key: 'phone', render: rec => emptyOr(rec.phone) },
+                        { key: 'preferred_time', render: rec => emptyOr(rec.preferred_time) }
+                    ],
+                    applications: [
+                        { key: 'created_at', render: rec => emptyOr(rec.created_at) },
+                        { key: 'first_name', render: rec => emptyOr([rec.first_name, rec.last_name].filter(Boolean).join(' ')) },
+                        { key: 'email', render: rec => emptyOr(rec.email) },
+                        { key: 'phone', render: rec => emptyOr(rec.phone) },
+                        { key: 'mnc_registration', render: rec => emptyOr(rec.mnc_registration) },
+                        { key: 'experience', render: rec => emptyOr(rec.experience) },
+                        { key: 'speciality', render: rec => emptyOr(rec.speciality) },
+                        { key: 'city', render: rec => emptyOr(rec.city) },
+                        { key: 'message', render: rec => emptyOr(rec.message) }
+                    ],
                     payments: [
                         { key: 'payment_id', render: rec => emptyOr(rec.payment_id) },
                         { key: 'amount_paise', render: rec => {

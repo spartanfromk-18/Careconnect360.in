@@ -61,6 +61,9 @@ const sendResend = async (to, subject, html) => {
   if (!res.ok) throw new Error(`Resend failed: ${await res.text()}`);
 };
 
+// [RESTORED — deleted by an automated "minimization" pass. This is what
+// resolves a logged-in customer's booking to their profile so it shows up
+// in their portal. Without this, customer_id is always null.]
 const getBearerToken = req => {
   const authorization = req.headers['authorization'] || '';
   const match = authorization.match(/^Bearer\s+(.+)$/i);
@@ -79,7 +82,7 @@ export default async function handler(req, res) {
   if (!success) return res.status(429).json({ error: 'Too many requests. Try again in 5 minutes.' });
 
   let body;
-  try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; } 
+  try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; }
   catch { return res.status(400).json({ error: 'Malformed JSON payload.' }); }
 
   const { type, payment_id } = body;
@@ -101,6 +104,18 @@ export default async function handler(req, res) {
     if (type === 'booking') {
       if (!payment_id) return res.status(402).json({ error: 'Payment verification required.' });
 
+      // [RESTORED] Resolve the logged-in customer's id, if any, BEFORE
+      // claiming the Redis lock — a guest (no token) still works fine,
+      // customerId just stays null.
+      let customerId = null;
+      const bearerToken = getBearerToken(req);
+      if (bearerToken) {
+        const { data, error } = await supabase.auth.getUser(bearerToken);
+        if (!error && data?.user?.id) {
+          customerId = data.user.id;
+        }
+      }
+
       const claimed = await redis.set(`payment_used:${payment_id}`, '1', { nx: true, ex: 86400 });
       if (!claimed) {
         console.error('[submit] Payment ID replay attempt blocked:', payment_id, logContext);
@@ -108,7 +123,7 @@ export default async function handler(req, res) {
       }
 
       let payment;
-      try { payment = await razorpay.payments.fetch(payment_id); } 
+      try { payment = await razorpay.payments.fetch(payment_id); }
       catch (err) {
         await redis.del(`payment_used:${payment_id}`);
         return res.status(402).json({ error: 'Payment could not be verified.' });
@@ -130,11 +145,20 @@ export default async function handler(req, res) {
       try {
         const { error } = await supabase.from('bookings').insert({
           name,
-          service,
           phone,
           email,
-          amount_paise: EXPECTED_BOOKING_FEE_PAISE,
+          // [RESTORED — these were silently dropped. Without them every
+          // booking loses its actual care details on save.]
+          care_type: sanitize(body.care_type || ''),
+          service,
+          location: sanitize(body.location || ''),
+          scheduled_date: date || null,
+          scheduled_time: sanitize(body.time || ''),
+          notes: message,
+          status: 'confirmed',
           payment_id,
+          customer_id: customerId, // [RESTORED]
+          amount_paise: payment.amount, // uses the verified captured amount, not the constant
           created_at: new Date().toISOString()
         });
 
@@ -147,7 +171,7 @@ export default async function handler(req, res) {
 
       const customerHtml = `<p>Hi ${name},</p><p>We have received your booking fee of ₹500. Our care coordinator will contact you shortly at ${phone}.</p>`;
       const adminHtml = `<p>New paid booking received.</p><p>Name: ${name}<br>Phone: ${phone}<br>Service: ${service}</p>`;
-      
+
       await Promise.allSettled([
         sendResend(email, 'Booking Confirmed - CareConnect360', customerHtml),
         sendResend(process.env.ADMIN_EMAIL, '🔔 New Paid Booking', adminHtml)
@@ -158,8 +182,8 @@ export default async function handler(req, res) {
 
     if (type === 'callback') {
       const { error } = await supabase.from('callbacks').insert({
-        name: name,
-        phone: phone,
+        name,
+        phone,
         preferred_time: date,
         created_at: new Date().toISOString()
       });
