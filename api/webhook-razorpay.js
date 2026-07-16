@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+ import crypto from 'crypto';
 import { Redis } from "@upstash/redis";
 import { createClient } from '@supabase/supabase-js';
 
@@ -34,9 +34,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// [FIX] This function was missing entirely. With bodyParser disabled above,
-// Vercel no longer parses the request for us — we must read the raw byte
-// stream ourselves before doing anything else with the request.
+ 
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
@@ -214,4 +212,4 @@ export default async function handler(req, res) {
 
   logEvent(logData, 'INFO');
   return res.status(200).json({ ok: true });
-}
+} 
