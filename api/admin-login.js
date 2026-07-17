@@ -11,7 +11,7 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
 if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error('CRITICAL: JWT_SECRET must be at least 32 characters.');
 if (!ADMIN_PASSWORD_HASH) throw new Error('CRITICAL: ADMIN_PASSWORD_HASH must be defined.');
 
-const ADMIN_ALLOWED_IPS = (process.env.ADMIN_ALLOWED_IPS || '').split(',').map(ip => ip.trim()).filter(Boolean); // ponytail: native split/trim/filter is enough here
+const ADMIN_ALLOWED_IPS = (process.env.ADMIN_ALLOWED_IPS || '').split(',').map(ip => ip.trim()).filter(Boolean);
 const isIpAllowed = req => ADMIN_ALLOWED_IPS.length === 0 || ADMIN_ALLOWED_IPS.includes(req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || '');
 
 const redis = new Redis({
@@ -24,17 +24,16 @@ const loginLimiter = new Ratelimit({
   limiter: Ratelimit.slidingWindow(5, "5 m"),
 });
 
- const token = jwt.sign({ role: 'admin', jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '12h', algorithm: 'HS256', issuer: 'careconnect360' });
-logEvent({ event: 'AUTH_SUCCESS', ipKey }, 'INFO');
-
-// REMOVED: res.setHeader('Set-Cookie', ...);
-// REPLACED WITH: Token exposed in body for client-side sessionStorage and Bearer auth
-return res.status(200).json({ 
-    ok: true, 
-    token: token, 
-    expiresIn: 12 * 60 * 60 
-});
 const logEvent = (data, level = 'INFO') => console.log(JSON.stringify({ level, timestamp: new Date().toISOString(), source: 'admin-login', ...data }));
+
+const setCorsHeaders = (res, reqOrigin) => {
+  if (reqOrigin === ALLOWED_ORIGIN || reqOrigin.includes('localhost') || reqOrigin.endsWith('.vercel.app')) {
+    res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Vary', 'Origin');
+};
 
 export default async function handler(req, res) {
   const reqOrigin = req.headers['origin'] || '';
@@ -65,14 +64,19 @@ export default async function handler(req, res) {
   }
 
   const password = body.password;
-  if (!(await bcrypt.compare(password, ADMIN_PASSWORD_HASH))) return logEvent({ event: 'AUTH_FAILED', ipKey }, 'WARN'), res.status(401).json({ error: 'Authentication failed. Incorrect credentials.' });
+  if (!(await bcrypt.compare(password, ADMIN_PASSWORD_HASH))) {
+    logEvent({ event: 'AUTH_FAILED', ipKey }, 'WARN');
+    return res.status(401).json({ error: 'Authentication failed. Incorrect credentials.' });
+  }
 
   const token = jwt.sign({ role: 'admin', jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '12h', algorithm: 'HS256', issuer: 'careconnect360' });
 
   logEvent({ event: 'AUTH_SUCCESS', ipKey }, 'INFO');
   
-  res.setHeader('Set-Cookie', `admin_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${12 * 60 * 60}`);
-  
-  logEvent({ event: 'AUTH_SUCCESS', ipKey }, 'INFO');
-  return res.status(200).json({ ok: true }); // Do NOT send the token in the body
+  // Send token in body for client-side sessionStorage (matching login.html expectation)
+  return res.status(200).json({ 
+    ok: true, 
+    token: token, 
+    expiresIn: 12 * 60 * 60 
+  });
 }
