@@ -93,7 +93,7 @@ export default async function handler(req, res) {
     const payment = payload.payload.payment?.entity || {};
     const logData = { eventId, eventType, paymentId: payment.id, orderId: payment.order_id, amount: payment.amount, currency: payment.currency };
 
-    let isDuplicate = true;
+    let isDuplicate;
     try {
         const result = await redis.set(`webhook:event:${eventId}`, '1', { nx: true, ex: 86400 });
         isDuplicate = !result;
