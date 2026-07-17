@@ -42,12 +42,21 @@ const hashPII = data => crypto.createHash('sha256').update(String(data || '')).d
 
 const sanitize = str => typeof str !== 'string' ? '' : str.replace(/[<>"'&]/g, c => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '&': '&amp;' })[c]).trim();
 
+// Added structured logging to prevent ReferenceErrors during catch blocks
+const logEvent = (data, level = 'INFO') => console.log(JSON.stringify({ level, timestamp: new Date().toISOString(), source: 'submit', ...data }));
+
 const setCors = (res, reqOrigin) => {
-  if (reqOrigin === process.env.ALLOWED_ORIGIN) {
-    res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN);
+  // Dynamically allow production, localhost, and Vercel preview environments
+  const isAllowed = reqOrigin === process.env.ALLOWED_ORIGIN || 
+                    reqOrigin.includes('localhost') || 
+                    reqOrigin.endsWith('.vercel.app');
+  
+  if (isAllowed && reqOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', reqOrigin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // CRITICAL: Added 'Authorization' for logged-in patient bookings
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Idempotency-Key');
   res.setHeader('Vary', 'Origin');
 };
 
@@ -61,9 +70,7 @@ const sendResend = async (to, subject, html) => {
   if (!res.ok) throw new Error(`Resend failed: ${await res.text()}`);
 };
 
-// [RESTORED — deleted by an automated "minimization" pass. This is what
-// resolves a logged-in customer's booking to their profile so it shows up
-// in their portal. Without this, customer_id is always null.]
+// [RESTORED] Resolves a logged-in customer's booking to their profile
 const getBearerToken = req => {
   const authorization = req.headers['authorization'] || '';
   const match = authorization.match(/^Bearer\s+(.+)$/i);
@@ -78,12 +85,21 @@ export default async function handler(req, res) {
 
   const rawIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
   const ipKey = hashPII(rawIp);
-  const { success } = await limiter.limit(ipKey);
-  if (!success) return res.status(429).json({ error: 'Too many requests. Try again in 5 minutes.' });
+  
+  // Fail-Open Rate Limiting: If Upstash is down, we do not block patient care
+  try {
+    const { success } = await limiter.limit(ipKey);
+    if (!success) return res.status(429).json({ error: 'Too many requests. Try again in 5 minutes.' });
+  } catch (redisError) {
+    logEvent({ event: 'RATE_LIMIT_BYPASS', error: redisError.message, ipKey }, 'WARN');
+  }
 
   let body;
-  try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; }
-  catch { return res.status(400).json({ error: 'Malformed JSON payload.' }); }
+  try { 
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; 
+  } catch { 
+    return res.status(400).json({ error: 'Malformed JSON payload.' }); 
+  }
 
   const { type, payment_id } = body;
   if (!type || !SUPPORTED_TYPES.includes(type)) return res.status(400).json({ error: 'Invalid submission type.' });
@@ -104,9 +120,6 @@ export default async function handler(req, res) {
     if (type === 'booking') {
       if (!payment_id) return res.status(402).json({ error: 'Payment verification required.' });
 
-      // [RESTORED] Resolve the logged-in customer's id, if any, BEFORE
-      // claiming the Redis lock — a guest (no token) still works fine,
-      // customerId just stays null.
       let customerId = null;
       const bearerToken = getBearerToken(req);
       if (bearerToken) {
@@ -118,13 +131,14 @@ export default async function handler(req, res) {
 
       const claimed = await redis.set(`payment_used:${payment_id}`, '1', { nx: true, ex: 86400 });
       if (!claimed) {
-        console.error('[submit] Payment ID replay attempt blocked:', payment_id, logContext);
+        logEvent({ event: 'PAYMENT_REPLAY_BLOCKED', payment_id, ...logContext }, 'WARN');
         return res.status(409).json({ error: 'This payment has already been used for a booking.' });
       }
 
       let payment;
-      try { payment = await razorpay.payments.fetch(payment_id); }
-      catch (err) {
+      try { 
+        payment = await razorpay.payments.fetch(payment_id); 
+      } catch (err) {
         await redis.del(`payment_used:${payment_id}`);
         return res.status(402).json({ error: 'Payment could not be verified.' });
       }
@@ -142,7 +156,7 @@ export default async function handler(req, res) {
         return res.status(402).json({ error: 'Invalid currency.' });
       }
 
-            try {
+      try {
         const { error } = await supabase.from('bookings').insert({
           name, phone, email,
           care_type: sanitize(body.care_type || ''),
@@ -155,9 +169,8 @@ export default async function handler(req, res) {
 
         if (error) throw new Error(`Supabase insert failed: ${error.message}`);
       } catch (dbError) {
-        console.error('[submit] Database insert failed, initiating auto-refund:', dbError.message, logContext);
+        logEvent({ event: 'DB_INSERT_FAILED', error: dbError.message, payment_id, ...logContext }, 'CRITICAL');
         
-         
         try {
           await razorpay.payments.refund(payment_id, { amount: payment.amount });
           logEvent({ event: 'AUTO_REFUND_SUCCESS', payment_id }, 'INFO');
@@ -220,7 +233,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
   } catch (error) {
-    console.error('[submit] Unhandled error:', error.message, logContext);
+    logEvent({ event: 'UNHANDLED_ERROR', error: error.message, ...logContext }, 'ERROR');
     return res.status(500).json({ error: 'An internal error occurred.' });
   }
 }

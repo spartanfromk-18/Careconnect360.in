@@ -24,13 +24,16 @@ const loginLimiter = new Ratelimit({
   limiter: Ratelimit.slidingWindow(5, "5 m"),
 });
 
-const setCorsHeaders = (res, reqOrigin) => {
-  if (ALLOWED_ORIGIN && reqOrigin === ALLOWED_ORIGIN) res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Vary', 'Origin');
-};
+ const token = jwt.sign({ role: 'admin', jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '12h', algorithm: 'HS256', issuer: 'careconnect360' });
+logEvent({ event: 'AUTH_SUCCESS', ipKey }, 'INFO');
 
+// REMOVED: res.setHeader('Set-Cookie', ...);
+// REPLACED WITH: Token exposed in body for client-side sessionStorage and Bearer auth
+return res.status(200).json({ 
+    ok: true, 
+    token: token, 
+    expiresIn: 12 * 60 * 60 
+});
 const logEvent = (data, level = 'INFO') => console.log(JSON.stringify({ level, timestamp: new Date().toISOString(), source: 'admin-login', ...data }));
 
 export default async function handler(req, res) {

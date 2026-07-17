@@ -1,4 +1,4 @@
- {
+{
   "name": "careconnect360-api",
   "version": "1.0.0",
   "type": "module",
@@ -12,6 +12,7 @@
     "@upstash/redis": "^1.28.2",
     "bcryptjs": "^3.0.3",
     "jsonwebtoken": "^9.0.2",
+    "raw-body": "^4.0.0",
     "razorpay": "^2.9.6"
   },
   "overrides": {

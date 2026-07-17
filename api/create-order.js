@@ -28,28 +28,6 @@ const redis = new Redis({
 
 const createRateLimiter = () => new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(CONFIG.RATE_LIMITS.STANDARD.requests, CONFIG.RATE_LIMITS.STANDARD.window) });
 
-const SecurityUtils = {
-  generateRequestId: () => `req_${crypto.randomBytes(16).toString('hex')}`,
-  hashPII: (data) => crypto.createHash('sha256').update(String(data || '')).digest('hex').slice(0, 16),
-  validateAmount: (amount) => {
-    const numAmount = Number(amount);
-    if (isNaN(numAmount) || numAmount < CONFIG.AMOUNT_LIMITS.MIN) throw new Error(`Amount must be at least ₹${CONFIG.AMOUNT_LIMITS.MIN}`);
-    if (numAmount > CONFIG.AMOUNT_LIMITS.MAX) throw new Error(`Amount exceeds maximum limit`);
-    return numAmount;
-  },
-  validateCurrency: (currency) => {
-    const curr = (currency || CONFIG.DEFAULT_CURRENCY).toUpperCase();
-    if (!CONFIG.ALLOWED_CURRENCIES.includes(curr)) throw new Error(`Currency ${currency} is not supported`);
-    return curr;
-  },
-  extractIP: (headers) => {
-    const rawIp = headers['cf-connecting-ip'] || headers['x-real-ip'] || headers['x-forwarded-for']?.split(',')[0].trim() || 'unknown';
-    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^[a-f0-9:]+$/i;
-    if (!ipRegex.test(rawIp) && rawIp !== 'unknown') return 'invalid';
-    return rawIp;
-  }
-};
-
 const setSecurityHeaders = (res, reqOrigin) => {
   if (reqOrigin === process.env.ALLOWED_ORIGIN) {
     res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN);
