@@ -7,6 +7,7 @@
     "start": "echo 'No local start script required for Vercel serverless deployment.'"
   },
   "dependencies": {
+    "@sentry/node": "^10.66.0",
     "@supabase/supabase-js": "^2.110.1",
     "@upstash/ratelimit": "^1.0.1",
     "@upstash/redis": "^1.28.2",
