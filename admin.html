@@ -1,0 +1,258 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard — CareConnect</title>
+    <style>
+        :root { --brand-blue: #0056b3; --bg-light: #f8f9fa; --border: #dee2e6; }
+        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: var(--bg-light); color: #212529; }
+        header { background: white; padding: 1rem 2rem; border-bottom: 2px solid var(--brand-blue); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        h1 { margin: 0; font-size: 1.5rem; color: var(--brand-blue); }
+        .container { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+        section { background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.03); border: 1px solid var(--border); }
+        section h2 { margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; font-size: 1.2rem; display: flex; justify-content: space-between; align-items: center; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { border: 1px solid var(--border); padding: 10px; text-align: left; vertical-align: top; }
+        th { background: #f1f3f5; font-weight: 600; position: sticky; top: 0; }
+        tr:nth-child(even) { background: #fcfcfc; }
+        .btn { padding: 8px 16px; cursor: pointer; background: var(--brand-blue); color: white; border: none; border-radius: 4px; font-weight: 500; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn-danger { background: #dc3545; }
+        .btn-sm { padding: 4px 10px; font-size: 0.8rem; }
+        .hidden { display: none; }
+        .load-more-container { text-align: center; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>CareConnect Admin Dashboard</h1>
+        <button class="btn btn-danger" id="logout-btn">Log Out</button>
+    </header>
+
+    <div class="container">
+        <section id="bookings-section">
+            <h2>
+                Patient Bookings Log
+                <button class="btn btn-sm" onclick="fetchTableData('bookings')">Refresh</button>
+            </h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th>Timestamp</th><th>Patient Name</th><th>Care Type</th><th>Service</th><th>Location</th><th>Date & Time</th><th>Notes</th></tr></thead>
+                    <tbody id="bookings-tbody"><tr><td colspan="7" style="text-align:center;">📥 Loading...</td></tr></tbody>
+                </table>
+            </div>
+            <div class="load-more-container">
+                <button class="btn hidden" id="load-more-bookings" onclick="loadMore('bookings')">Load More Bookings</button>
+            </div>
+        </section>
+
+        <section id="callbacks-section">
+            <h2>
+                Quick Callback Inquiry Log
+                <button class="btn btn-sm" onclick="fetchTableData('callbacks')">Refresh</button>
+            </h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th>Timestamp</th><th>Inquirer Name</th><th>Phone Number</th><th>Preferred Time</th></tr></thead>
+                    <tbody id="callbacks-tbody"><tr><td colspan="4" style="text-align:center;">📥 Loading...</td></tr></tbody>
+                </table>
+            </div>
+            <div class="load-more-container">
+                <button class="btn hidden" id="load-more-callbacks" onclick="loadMore('callbacks')">Load More Callbacks</button>
+            </div>
+        </section>
+
+        <section id="applications-section">
+            <h2>
+                Caregiver Onboarding Applications Log
+                <button class="btn btn-sm" onclick="fetchTableData('applications')">Refresh</button>
+            </h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th>Timestamp</th><th>Name</th><th>Email</th><th>Phone</th><th>Reg</th><th>Exp</th><th>Speciality</th><th>Message</th></tr></thead>
+                    <tbody id="applications-tbody"><tr><td colspan="8" style="text-align:center;">📥 Loading...</td></tr></tbody>
+                </table>
+            </div>
+            <div class="load-more-container">
+                <button class="btn hidden" id="load-more-applications" onclick="loadMore('applications')">Load More Applications</button>
+            </div>
+        </section>
+
+        <section id="payments-section">
+            <h2>
+                Payment Transactions Log
+                <button class="btn btn-sm" onclick="fetchTableData('payments')">Refresh</button>
+            </h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th>Payment ID</th><th>Amount</th><th>Status</th><th>Created At</th></tr></thead>
+                    <tbody id="payments-tbody"><tr><td colspan="4" style="text-align:center;">📥 Loading...</td></tr></tbody>
+                </table>
+            </div>
+            <div class="load-more-container">
+                <button class="btn hidden" id="load-more-payments" onclick="loadMore('payments')">Load More Payments</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const state = {
+            token: sessionStorage.getItem('admin_token'),
+            offsets: { bookings: null, callbacks: null, applications: null, payments: null },
+            data: { bookings: [], callbacks: [], applications: [], payments: [] },
+            limit: 50
+        };
+
+        if (!state.token) window.location.href = '/login.html';
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            sessionStorage.removeItem('admin_token');
+            window.location.href = '/login.html';
+        });
+
+        const emptyOr = val => val === null || val === undefined || String(val).trim() === '' ? '—' : val;
+
+        function clearTable(tbodyId, colSpan) {
+            const tbody = document.getElementById(tbodyId);
+            tbody.innerHTML = '';
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = colSpan;
+            td.style.textAlign = 'center';
+            td.textContent = '📥 Loading...';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+        }
+
+        const resolveCellValue = (rec, col) => col && typeof col === 'object' && !Array.isArray(col) ? (typeof col.render === 'function' ? col.render(rec) : rec[col.key]) : rec[col];
+
+        function renderTable(tbodyId, records, columns) {
+            const tbody = document.getElementById(tbodyId);
+            tbody.innerHTML = '';
+            if (!records || records.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = columns.length;
+                td.style.textAlign = 'center';
+                td.textContent = '📥 No records found.';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+                return;
+            }
+            records.forEach(rec => {
+                const tr = document.createElement('tr');
+                columns.forEach(col => {
+                    const td = document.createElement('td');
+                    td.textContent = emptyOr(resolveCellValue(rec, col));
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function fetchTableData(type, append = false) {
+            const tbodyId = `${type}-tbody`;
+            const colSpan = type === 'bookings' ? 7 : type === 'callbacks' ? 4 : type === 'applications' ? 8 : 4;
+            
+            if (!append) {
+                clearTable(tbodyId, colSpan);
+                state.offsets[type] = null; 
+            }
+
+            // Only send the offset for the specific table we are paginating 
+            // to prevent unintentional pagination of other tables.
+            const payload = { 
+                limit: state.limit, 
+                offsets: { [type]: state.offsets[type] } 
+            };
+
+            try {
+                const res = await fetch('/api/admin-verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${state.token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.status === 401 || res.status === 403) {
+                    sessionStorage.removeItem('admin_token');
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                const data = await res.json();
+                if (!data.ok) throw new Error(data.error);
+
+                state.offsets[type] = data.pagination.offsets[type];
+                
+                if (append) {
+                    state.data[type] = state.data[type].concat(data[type]);
+                } else {
+                    state.data[type] = data[type];
+                }
+
+                const columns = {
+                    
+                    bookings: [
+                        { key: 'created_at', render: rec => emptyOr(rec.created_at) },
+                        { key: 'name', render: rec => emptyOr(rec.name) },
+                        { key: 'care_type', render: rec => emptyOr(rec.care_type) },
+                        { key: 'service', render: rec => emptyOr(rec.service) },
+                        { key: 'location', render: rec => emptyOr(rec.location) },
+                        { key: 'scheduled_date', render: rec => emptyOr([rec.scheduled_date, rec.scheduled_time].filter(Boolean).join(' ')) },
+                        { key: 'notes', render: rec => emptyOr(rec.notes) }
+                    ],
+                    callbacks: [
+                        { key: 'created_at', render: rec => emptyOr(rec.created_at) },
+                        { key: 'name', render: rec => emptyOr(rec.name) },
+                        { key: 'phone', render: rec => emptyOr(rec.phone) },
+                        { key: 'preferred_time', render: rec => emptyOr(rec.preferred_time) }
+                    ],
+                    applications: [
+                        { key: 'created_at', render: rec => emptyOr(rec.created_at) },
+                        { key: 'first_name', render: rec => emptyOr([rec.first_name, rec.last_name].filter(Boolean).join(' ')) },
+                        { key: 'email', render: rec => emptyOr(rec.email) },
+                        { key: 'phone', render: rec => emptyOr(rec.phone) },
+                        { key: 'mnc_registration', render: rec => emptyOr(rec.mnc_registration) },
+                        { key: 'experience', render: rec => emptyOr(rec.experience) },
+                        { key: 'speciality', render: rec => emptyOr(rec.speciality) },
+                        { key: 'city', render: rec => emptyOr(rec.city) },
+                        { key: 'message', render: rec => emptyOr(rec.message) }
+                    ],
+                    payments: [
+                        { key: 'payment_id', render: rec => emptyOr(rec.payment_id) },
+                        { key: 'amount_paise', render: rec => {
+                            const amount = Number(rec.amount_paise);
+                            return Number.isFinite(amount) ? `₹${(amount / 100).toFixed(2)}` : emptyOr(rec.amount_paise);
+                        } },
+                        { key: 'status', render: rec => emptyOr(rec.status) },
+                        { key: 'created_at', render: rec => emptyOr(rec.created_at) }
+                    ]
+                };
+
+                renderTable(tbodyId, state.data[type], columns[type]);
+
+                const loadMoreBtn = document.getElementById(`load-more-${type}`);
+                if (loadMoreBtn) {
+                    loadMoreBtn.classList.toggle('hidden', !state.offsets[type]);
+                }
+
+            } catch (err) {
+                console.error(`[Admin] Fetch error for ${type}:`, err);
+                const tbody = document.getElementById(tbodyId);
+                tbody.innerHTML = `<tr><td colspan="${colSpan}" style="color:red; text-align:center;">Error: ${err.message}</td></tr>`;
+            }
+        }
+
+        const loadMore = type => fetchTableData(type, true);
+
+        fetchTableData('bookings');
+        fetchTableData('callbacks');
+        fetchTableData('applications');
+        fetchTableData('payments');
+    </script>
+</body>
+</html>
