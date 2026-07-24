@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "mkdir -p public && cp *.html public/ && echo 'Prepared static HTML output in public/'.",
+    "build": "echo 'Static HTML files served from project root via cleanUrls.'",
     "start": "echo 'No local start script required for Vercel serverless deployment.'"
   },
   "dependencies": {

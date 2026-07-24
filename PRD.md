@@ -63,7 +63,7 @@ Legend: `[ ]` = not started, `[~]` = in progress (should never persist across it
 
 ---
 
-### [ ] TASK-005: Unhandled `JSON.parse` on Razorpay webhook body
+### [x] TASK-005: Unhandled `JSON.parse` on Razorpay webhook body
 **Files:** `api/webhook-razorpay.js:90`
 **Problem:** A malformed body after a *valid* HMAC signature throws uncaught, causing a 500 → Razorpay retries → potential duplicate side effects / retry storm.
 **Fix:** Wrap `JSON.parse` in try/catch. On failure, log at ERROR level and return `400 { error: 'Invalid JSON payload' }` (not 500 — a 400 tells Razorpay not to retry).
@@ -77,28 +77,28 @@ Legend: `[ ]` = not started, `[~]` = in progress (should never persist across it
 ## PHASE 1 — SECURITY HARDENING
 > Not actively broken, but below the bar for a live payment system. Start only after Phase 0 is fully `[x]`.
 
-### [ ] TASK-006: `validateCurrency` references non-existent `CONFIG.DEFAULT_CURRENCY`
+### [x] TASK-006: `validateCurrency` references non-existent `CONFIG.DEFAULT_CURRENCY`
 **File:** `api/security-utils.js:32` — replace the undefined reference with the literal `'INR'` default.
 
-### [ ] TASK-007: IPv6 addresses always fail IP validation
+### [x] TASK-007: IPv6 addresses always fail IP validation
 **File:** `api/security-utils.js:15-19` — extend the regex to accept IPv6 alongside the existing IPv4 pattern, per the audit's fixed code.
 
-### [ ] TASK-008: Redis blocklist check fails OPEN on Upstash outage
+### [x] TASK-008: Redis blocklist check fails OPEN on Upstash outage
 **File:** `lib/redis-blocklist.js:21-29` — flip to fail-closed (`return true` / treat as blocked) on any error during the blocklist check, since this guards admin auth over patient PII.
 
-### [ ] TASK-009: Admin IP allowlist bypassable via `x-forwarded-for` header injection
+### [x] TASK-009: Admin IP allowlist bypassable via `x-forwarded-for` header injection
 **Files:** `api/admin-login.js:14-15`, `api/admin-verify.js:19`, `api/admin-logout.js:8` — read the **last** entry in `x-forwarded-for` (Vercel-appended, trustworthy), not the first. Same fix in all three files.
 
-### [ ] TASK-010: CSP allows `'unsafe-inline'` for `script-src`
+### [x] TASK-010: CSP allows `'unsafe-inline'` for `script-src`
 **File:** `vercel.json:46` — this is the hardest one in the list. Do not attempt a partial hack. Either (a) move every inline `<script>` block in every HTML page to external `.js` files and drop `'unsafe-inline'`, or (b) generate per-script hashes and pin them in the CSP. **If this requires restructuring more than ~5 files or touching build tooling, stop, mark this task `[~]` with a note in `progress.txt` explaining the blocker, and surface it to the human rather than guessing.** This is the one task in this PRD where an incomplete/incorrect attempt is worse than asking for help.
 
-### [ ] TASK-011: `nurses` table has RLS enabled but no direct SELECT policy
+### [x] TASK-011: `nurses` table has RLS enabled but no direct SELECT policy
 **File:** `supabase/migrations/` — add `CREATE POLICY "nurses view own record" ON public.nurses FOR SELECT USING (profile_id = auth.uid());` in a new additive migration.
 
-### [ ] TASK-012: XSS sink via `innerHTML` with `err.message` in admin error rendering
+### [x] TASK-012: XSS sink via `innerHTML` with `err.message` in admin error rendering
 **Files:** `admin.html:245`, `public/admin.html:245` — replace the template-literal `innerHTML` assignment with `createElement` + `textContent`, in both files identically.
 
-### [ ] TASK-013: No startup guard for missing `SUPABASE_ANON_KEY` / `SUPABASE_URL`
+### [x] TASK-013: No startup guard for missing `SUPABASE_ANON_KEY` / `SUPABASE_URL`
 **File:** `api/bookings.js` — add an explicit check at handler startup that throws/returns a clear 500 config error if either env var is undefined, consistent with guards in other handlers.
 
 ---
@@ -106,13 +106,13 @@ Legend: `[ ]` = not started, `[~]` = in progress (should never persist across it
 ## PHASE 2 — PERFORMANCE OPTIMIZATIONS
 > Start only after Phase 1 is fully `[x]`.
 
-### [ ] TASK-014: `admin_dashboard_data` RPC does `SELECT *` on all four tables
+### [x] TASK-014: `admin_dashboard_data` RPC does `SELECT *` on all four tables
 **File:** `hardening.sql:51-68` — enumerate only the ~7-11 columns the admin dashboard actually renders, per the audit's fixed SQL, instead of `select *`.
 
-### [ ] TASK-015: New `Ratelimit` instance constructed per-request
+### [x] TASK-015: New `Ratelimit` instance constructed per-request
 **File:** `api/create-order.js:30-31, 61` — hoist `Ratelimit` construction to module scope so it's built once per warm Lambda instance, not per request.
 
-### [ ] TASK-016: Invoice write always sets `customer_id: null`; sequential awaits that could parallelize
+### [x] TASK-016: Invoice write always sets `customer_id: null`; sequential awaits that could parallelize
 **File:** `api/webhook-razorpay.js:52-60` — fetch the booking's `customer_id` first, then run the status-update and invoice-existence-check in `Promise.all`, and populate `customer_id` on insert so the existing `"customers view own invoices"` RLS policy can ever match.
 
 ---
@@ -120,7 +120,7 @@ Legend: `[ ]` = not started, `[~]` = in progress (should never persist across it
 ## PHASE 3 — MAINTAINABILITY
 > Lowest priority. Only start after Phases 0-2 are fully `[x]`.
 
-### [ ] TASK-017: Duplicate root/ vs public/ HTML tree
+### [x] TASK-017: Duplicate root/ vs public/ HTML tree
 **Files:** `index.html`, `admin.html`, `login.html` and their `public/` twins — consolidate to a single source tree, using Vercel `rewrites`/`cleanUrls` to serve routes. **High blast radius — do this task last, on its own branch, and note in `progress.txt` exactly which routes were repointed** so a human can spot-check before merge.
 
 ### [ ] TASK-018: Duplicated `hashPII` implementation

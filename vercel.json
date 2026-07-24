@@ -43,7 +43,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://js-de.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.b12.io https://*.razorpay.com; connect-src 'self' https://api.razorpay.com https://o4511563071750144.ingest.de.sentry.io https://*.supabase.co wss://*.supabase.co; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com; worker-src 'self' blob:;"
+          "value": "default-src 'self'; script-src 'self' 'sha256-C6kSCfCStMTOLjts/hL2HjQtZKk3DqTTMSQ+OchxSvw=' 'sha256-hEP+7MjuhfEpVY65z09rL8git2Rb8EkCE1lnIjMOToI=' 'sha256-pic8c5a7SBxKzwoeiAeUmmfivrWSW6WqX4FRSKtzLeI=' 'sha256-hLtBnxfrsY1DESm8ZeiXAleUGIPgxQDN9R5WCozhYhw=' https://checkout.razorpay.com https://js-de.sentry-cdn.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.b12.io https://*.razorpay.com; connect-src 'self' https://api.razorpay.com https://o4511563071750144.ingest.de.sentry.io https://*.supabase.co wss://*.supabase.co; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com; worker-src 'self' blob:;"
         },
         {
           "key": "X-Frame-Options",
