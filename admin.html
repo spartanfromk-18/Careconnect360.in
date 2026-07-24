@@ -106,7 +106,20 @@
 
         if (!state.token) window.location.href = '/login.html';
 
-        document.getElementById('logout-btn').addEventListener('click', () => {
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            const token = sessionStorage.getItem('admin_token');
+            if (token) {
+                try {
+                    await fetch('/api/admin-logout', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                } catch (err) {
+                    console.error('[Admin] Logout error:', err);
+                }
+            }
             sessionStorage.removeItem('admin_token');
             window.location.href = '/login.html';
         });
