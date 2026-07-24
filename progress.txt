@@ -17,4 +17,8 @@ Files: api/submit.js, api/admin-login.js, .env.example
 [2026-07-24T18:00:00Z] TASK-003: Added server-side Razorpay HMAC signature verification before any Redis or DB write in api/submit.js. Reads razorpay_order_id and razorpay_signature from body, computes HMAC-SHA256(order_id|payment_id, key_secret), compares via crypto.timingSafeEqual with length-guarded buffers. Rejects 402 on missing fields or mismatch. Existing Redis replay-lock + payments.fetch status/amount check unchanged.
 Verification: lint=skip (no lint script) build=skip (bash-based build) tests=skip (no test script) coderabbit=skip (CLI not installed) syntax=pass (node -c)
 Files: api/submit.js
+---
+[2026-07-24T19:00:00Z] TASK-004: Added explicit deny-all RLS policies on bookings (INSERT/UPDATE/DELETE for anon+authenticated) and payments (ALL for anon). New additive migration 20260724000000_rls_bookings_payments.sql. Service_role bypasses RLS so submit.js and webhooks remain unaffected.
+Verification: lint=skip (no lint script) build=skip (SQL migration, no JS) tests=skip (no test script, no local Supabase to verify RLS) coderabbit=skip (CLI not installed)
+Files: supabase/migrations/20260724000000_rls_bookings_payments.sql
 

@@ -52,7 +52,7 @@ Legend: `[ ]` = not started, `[~]` = in progress (should never persist across it
 
 ---
 
-### [ ] TASK-004: Missing RLS write policies on `bookings`; no policies at all on `payments`
+### [x] TASK-004: Missing RLS write policies on `bookings`; no policies at all on `payments`
 **Files:** `supabase/migrations/`
 **Problem:** `bookings` has SELECT policies only — any authenticated user with the anon key can `INSERT` directly via the Supabase SDK, bypassing `submit.js` and the payment check entirely. `payments` has RLS enabled with zero policies (currently fails safe for anon, but is an undocumented trap).
 **Fix:** Add a new migration file with explicit deny-all policies for non-service-role INSERT/UPDATE/DELETE on `bookings`, and an explicit deny-all-anon policy on `payments` (service_role bypasses RLS by default, so the webhook keeps working). Use the exact SQL from the audit report's "Fixed code" block for this finding.
