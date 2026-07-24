@@ -16,7 +16,7 @@ Legend: `[ ]` = not started, `[~]` = in progress (should never persist across it
 ## PHASE 0 — CRITICAL BLOCKERS
 > Data loss / security breach / financial loss risk. Nothing below this phase starts until Phase 0 is 100% complete.
 
-### [ ] TASK-001: Logout does not revoke the admin JWT
+### [x] TASK-001: Logout does not revoke the admin JWT
 **Files:** `admin.html:109-112`, `public/admin.html:109-112`
 **Problem:** Logout only clears `sessionStorage`; it never calls `POST /api/admin-logout`, so the JWT stays valid for up to 12 hours after "logout."
 **Fix:** Make the logout handler `async`, capture the token before removing it from storage, `POST` it to `/api/admin-logout` with `Authorization: Bearer <token>` inside a try/catch (best-effort — still redirect on failure), then redirect to `/login.html`.
@@ -28,7 +28,7 @@ Legend: `[ ]` = not started, `[~]` = in progress (should never persist across it
 
 ---
 
-### [ ] TASK-002: Wildcard CORS on `api/submit.js` (and `api/admin-login.js`)
+### [x] TASK-002: Wildcard CORS on `api/submit.js` (and `api/admin-login.js`)
 **Files:** `api/submit.js:50-52`, `api/admin-login.js:30`
 **Problem:** CORS check accepts any origin containing `localhost` or ending in `.vercel.app` — anyone can host a free `*.vercel.app` page and POST to the booking/payment endpoint.
 **Fix:** Replace the suffix/substring match with an exact match against `process.env.ALLOWED_ORIGIN`, plus an explicit `ALLOWED_PREVIEW_ORIGINS` env var (comma-separated exact origins) for staging. No suffix matching on shared CDN apexes, ever.
@@ -40,7 +40,7 @@ Legend: `[ ]` = not started, `[~]` = in progress (should never persist across it
 
 ---
 
-### [ ] TASK-003: No server-side Razorpay signature verification before booking write
+### [x] TASK-003: No server-side Razorpay signature verification before booking write
 **Files:** `api/submit.js:104, 132-157`
 **Problem:** Only `payment_id` is read from the client and verified via `razorpay.payments.fetch()`. The client already sends `razorpay_order_id` and `razorpay_signature` (see `index.html:3037-3038`) but they're never checked. This allows replay of a captured `payment_id` within the 24h Redis TTL window.
 **Fix:** Read `razorpay_order_id` and `razorpay_signature` from the body. Compute `HMAC-SHA256(order_id + "|" + payment_id, RAZORPAY_KEY_SECRET)` and compare with `crypto.timingSafeEqual` **before** the Redis `NX` claim and before `razorpay.payments.fetch`. Reject with 402 on missing fields or signature mismatch.

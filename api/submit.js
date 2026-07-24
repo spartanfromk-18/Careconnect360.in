@@ -45,17 +45,14 @@ const sanitize = str => typeof str !== 'string' ? '' : str.replace(/[<>"'&]/g, c
 // Added structured logging to prevent ReferenceErrors during catch blocks
 const logEvent = (data, level = 'INFO') => console.log(JSON.stringify({ level, timestamp: new Date().toISOString(), source: 'submit', ...data }));
 
+const ALLOWED_PREVIEW_ORIGINS = (process.env.ALLOWED_PREVIEW_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+
 const setCors = (res, reqOrigin) => {
-  // Dynamically allow production, localhost, and Vercel preview environments
-  const isAllowed = reqOrigin === process.env.ALLOWED_ORIGIN || 
-                    reqOrigin.includes('localhost') || 
-                    reqOrigin.endsWith('.vercel.app');
-  
+  const isAllowed = reqOrigin === process.env.ALLOWED_ORIGIN || ALLOWED_PREVIEW_ORIGINS.includes(reqOrigin);
   if (isAllowed && reqOrigin) {
     res.setHeader('Access-Control-Allow-Origin', reqOrigin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  // CRITICAL: Added 'Authorization' for logged-in patient bookings
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Idempotency-Key');
   res.setHeader('Vary', 'Origin');
 };
@@ -119,6 +116,33 @@ export default async function handler(req, res) {
   try {
     if (type === 'booking') {
       if (!payment_id) return res.status(402).json({ error: 'Payment verification required.' });
+
+      const { razorpay_order_id, razorpay_signature } = body;
+      if (!razorpay_order_id || !razorpay_signature) {
+        return res.status(402).json({ error: 'Missing Razorpay order or signature.' });
+      }
+
+      let expectedSig;
+      try {
+        const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+        hmac.update(`${razorpay_order_id}|${payment_id}`);
+        expectedSig = hmac.digest('hex');
+      } catch (hmacErr) {
+        logEvent({ event: 'HMAC_GENERATION_FAILED', error: hmacErr.message, ...logContext }, 'ERROR');
+        return res.status(500).json({ error: 'Signature verification failed.' });
+      }
+
+      try {
+        const sigBuf = Buffer.from(razorpay_signature, 'hex');
+        const expectedBuf = Buffer.from(expectedSig, 'hex');
+        if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+          logEvent({ event: 'SIGNATURE_MISMATCH', payment_id, ...logContext }, 'WARN');
+          return res.status(402).json({ error: 'Payment signature verification failed.' });
+        }
+      } catch (cmpErr) {
+        logEvent({ event: 'SIGNATURE_COMPARE_ERROR', error: cmpErr.message, ...logContext }, 'ERROR');
+        return res.status(402).json({ error: 'Payment signature verification failed.' });
+      }
 
       let customerId = null;
       const bearerToken = getBearerToken(req);

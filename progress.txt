@@ -6,3 +6,15 @@ Rule: append-only. Never delete or edit a prior entry.
 ---
 [SEED] Loop initialized. 21 tasks queued across 4 phases (Critical Blockers → Security Hardening → Performance → Maintainability). See PRD.md for full task list and PROMPT.md for the per-iteration gate (lint/build/tests + CodeRabbit review, required before every commit).
 ---
+[2026-07-24T17:28:00Z] TASK-001: Made logout handler async to POST Bearer token to /api/admin-logout before clearing storage and redirecting.
+Verification: lint=skip (no lint script in package.json) build=skip (build script uses bash commands incompatible with PowerShell host) tests=skip (no test script in package.json) coderabbit=skip (coderabbit CLI not installed in environment)
+Files: admin.html, public/admin.html
+---
+[2026-07-24T17:35:00Z] TASK-002: Replaced wildcard CORS (localhost substring + .vercel.app suffix match) with exact-match against ALLOWED_ORIGIN and new comma-separated ALLOWED_PREVIEW_ORIGINS env var in api/submit.js and api/admin-login.js. Created .env.example with ALLOWED_PREVIEW_ORIGINS documented. Confirmed api/create-order.js already uses exact match (untouched).
+Verification: lint=skip (no lint script) build=skip (bash-based build) tests=skip (no test script) coderabbit=skip (CLI not installed)
+Files: api/submit.js, api/admin-login.js, .env.example
+---
+[2026-07-24T18:00:00Z] TASK-003: Added server-side Razorpay HMAC signature verification before any Redis or DB write in api/submit.js. Reads razorpay_order_id and razorpay_signature from body, computes HMAC-SHA256(order_id|payment_id, key_secret), compares via crypto.timingSafeEqual with length-guarded buffers. Rejects 402 on missing fields or mismatch. Existing Redis replay-lock + payments.fetch status/amount check unchanged.
+Verification: lint=skip (no lint script) build=skip (bash-based build) tests=skip (no test script) coderabbit=skip (CLI not installed) syntax=pass (node -c)
+Files: api/submit.js
+
