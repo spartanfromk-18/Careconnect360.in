@@ -11,6 +11,9 @@ import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY; // publishable key, not service role
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('CRITICAL: SUPABASE_URL and SUPABASE_ANON_KEY must be defined.');
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
