@@ -123,13 +123,13 @@ Legend: `[ ]` = not started, `[~]` = in progress (should never persist across it
 ### [x] TASK-017: Duplicate root/ vs public/ HTML tree
 **Files:** `index.html`, `admin.html`, `login.html` and their `public/` twins — consolidate to a single source tree, using Vercel `rewrites`/`cleanUrls` to serve routes. **High blast radius — do this task last, on its own branch, and note in `progress.txt` exactly which routes were repointed** so a human can spot-check before merge.
 
-### [ ] TASK-018: Duplicated `hashPII` implementation
+### [x] TASK-018: Duplicated `hashPII` implementation
 **Files:** `api/submit.js:41` vs `api/security-utils.js:9` — delete the local copy in `submit.js`, import from `security-utils.js` instead.
 
-### [ ] TASK-019: Duplicated IP-extraction logic bypasses shared validation
+### [x] TASK-019: Duplicated IP-extraction logic bypasses shared validation
 **File:** `api/submit.js:86` — replace the inline `x-forwarded-for` parsing with a call to `SecurityUtils.extractIP(req.headers)`.
 
-### [ ] TASK-020: `getEmailTemplate` only handles `refund.processed`, not `refund.created`
+### [~] TASK-020: `getEmailTemplate` only handles `refund.processed`, not `refund.created`
 **File:** `api/webhook-razorpay.js:112` — either add a template branch for `refund.created`, or add a one-line comment confirming the gap is intentional (product decision — if unsure, add the comment and flag for human confirmation rather than guessing intent).
 
 ### [ ] TASK-021: `invoices.payment_id` FK is never populated

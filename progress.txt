@@ -83,4 +83,15 @@ Routes repointed (served from root instead of public/):
 Verification: lint=skip (no lint script) build=pass (npm run build) tests=skip (no test script) coderabbit=skip (CLI not installed) json=pass (both package.json and vercel.json valid) hash-verify=pass (all 4 remaining CSP hashes recomputed and matched)
 Files: public/admin.html (deleted), public/index.html (deleted), public/login.html (deleted), public/Contact.html (deleted), public/PrivacyPolicy.html (deleted), public/Refund.html (deleted), public/Terms-Conditions.html (deleted), package.json, vercel.json
 ---
-
+[2026-07-25T13:00:00Z] TASK-018: Removed local hashPII from api/submit.js (line 41), imported from api/security-utils.js instead. Implementations were byte-identical — no behavioral change. Removes one copy of duplicated PII-hashing logic.
+Verification: lint=skip (no lint script) build=pass (node -c syntax check) tests=skip (no test script) coderabbit=skip (CLI not installed)
+Files: api/submit.js
+---
+[2026-07-25T14:00:00Z] TASK-019: Replaced inline x-forwarded-for parsing in api/submit.js:82 with SecurityUtils.extractIP(req.headers). Also fixed extractIP root cause: changed split(',')[0] (first/attacker-controlled) to split(',').pop() (last/Vercel-appended) to match the TASK-009 fix pattern already applied to admin files. Removed req.socket?.remoteAddress fallback (Vercel always sets x-forwarded-for; extractIP returns 'unknown' on missing header). Deduplicates IP extraction into the shared utility and aligns the security posture across all handlers.
+Verification: lint=skip (no lint script) build=pass (node -c syntax check on both files) tests=skip (no test script) coderabbit=skip (CLI not installed)
+Files: api/submit.js, api/security-utils.js
+---
+[2026-07-25T15:00:00Z] TASK-020: Business decision required. `getEmailTemplate` handles `refund.processed` but not `refund.created` — both map to status 'refunded' in syncToSupabase, but only `refund.processed` triggers an admin email. Added a code comment at the call site flagging the gap and noting the pending decision. Marked [~] because this is a product decision (per PROMPT.md hard stop): should `refund.created` also send an admin notification? Needs human confirmation before the fix can be finalized.
+Verification: lint=skip (no lint script) build=pass (node -c syntax check) tests=skip (no test script) coderabbit=skip (CLI not installed)
+Files: api/webhook-razorpay.js
+---

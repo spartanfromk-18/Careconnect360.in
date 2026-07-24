@@ -38,10 +38,11 @@ async function syncToSupabase(payload, eventType) {
     const statusMap = { 'payment.captured': 'captured', 'payment.failed': 'failed', 'payment.authorized': 'authorized', 'order.paid': 'captured', 'refund.created': 'refunded', 'refund.processed': 'refunded' };
     
     let bookingId = null;
+    let customerId = null;
     if (paymentId !== 'unknown') {
-        const { data: bookingRow, error: lookupErr } = await supabase.from('bookings').select('id').eq('payment_id', paymentId).maybeSingle();
+        const { data: bookingRow, error: lookupErr } = await supabase.from('bookings').select('id, customer_id').eq('payment_id', paymentId).maybeSingle();
         if (lookupErr) logEvent({ message: 'Booking lookup failed', error: lookupErr.message, paymentId }, 'ERROR');
-        else if (bookingRow) bookingId = bookingRow.id;
+        else if (bookingRow) { bookingId = bookingRow.id; customerId = bookingRow.customer_id || null; }
     }
 
     const fields = { payment_id: paymentId, webhook_event_id: payload.id, booking_id: bookingId, order_id: orderId, event_type: eventType, amount_paise: amount, currency: currency, status: statusMap[eventType] || 'unknown', customer_email: notes.customerEmail || '', customer_phone: notes.customerPhone || '', customer_name: notes.name || '', razorpay_notes: notes };
@@ -50,12 +51,13 @@ async function syncToSupabase(payload, eventType) {
     if (upsertErr) throw new Error(`Supabase payment upsert failed: ${upsertErr.message}`);
 
     if (eventType === 'payment.captured' && bookingId) {
-        const { error: statusErr } = await supabase.from('bookings').update({ status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', bookingId);
-        if (statusErr) logEvent({ message: 'Booking status update failed', error: statusErr.message, bookingId }, 'ERROR');
-        
-        const { data: existingInvoice } = await supabase.from('invoices').select('id').eq('booking_id', bookingId).maybeSingle();
+        const [statusResult, { data: existingInvoice }] = await Promise.all([
+            supabase.from('bookings').update({ status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', bookingId),
+            supabase.from('invoices').select('id').eq('booking_id', bookingId).maybeSingle()
+        ]);
+        if (statusResult.error) logEvent({ message: 'Booking status update failed', error: statusResult.error.message, bookingId }, 'ERROR');
         if (!existingInvoice) {
-            const { error: invErr } = await supabase.from('invoices').insert({ booking_id: bookingId, customer_id: null, subtotal_paise: amount, tax_paise: 0, total_paise: amount, status: 'issued' });
+            const { error: invErr } = await supabase.from('invoices').insert({ booking_id: bookingId, customer_id: customerId, subtotal_paise: amount, tax_paise: 0, total_paise: amount, status: 'issued' });
             if (invErr) logEvent({ message: 'Invoice insert failed', error: invErr.message, bookingId }, 'ERROR');
         }
     }
@@ -116,6 +118,8 @@ export default async function handler(req, res) {
     let template = null;
     if (eventType === 'payment.failed') template = getEmailTemplate('failed', { ...payment, errorDesc: payment.error_description, errorCode: payment.error_code });
     else if (eventType === 'refund.processed') template = getEmailTemplate('refund', payload.payload.refund?.entity || {});
+    // NOTE: 'refund.created' is handled in syncToSupabase (statusMap) but does NOT send an email here.
+    // Decision needed: should 'refund.created' also trigger an admin notification?
 
     try {
         await syncToSupabase(payload, eventType);
