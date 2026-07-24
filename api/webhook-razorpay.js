@@ -87,7 +87,13 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid signature' });
     }
 
-    const payload = JSON.parse(rawBody.toString('utf8'));
+    let payload;
+    try {
+        payload = JSON.parse(rawBody.toString('utf8'));
+    } catch (parseErr) {
+        logEvent({ message: 'Invalid JSON payload', error: parseErr.message }, 'ERROR');
+        return res.status(400).json({ error: 'Invalid JSON payload' });
+    }
     const eventId = payload.id;
     const eventType = payload.event;
     const payment = payload.payload.payment?.entity || {};
