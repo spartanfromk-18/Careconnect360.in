@@ -132,7 +132,7 @@ Legend: `[ ]` = not started, `[~]` = in progress (should never persist across it
 ### [~] TASK-020: `getEmailTemplate` only handles `refund.processed`, not `refund.created`
 **File:** `api/webhook-razorpay.js:112` — either add a template branch for `refund.created`, or add a one-line comment confirming the gap is intentional (product decision — if unsure, add the comment and flag for human confirmation rather than guessing intent).
 
-### [ ] TASK-021: `invoices.payment_id` FK is never populated
+### [x] TASK-021: `invoices.payment_id` FK is never populated
 **File:** `api/webhook-razorpay.js:58` (invoice creation) — set `payment_id` to the corresponding `payments.id` (uuid) when creating the invoice, so the FK isn't permanently null.
 
 ---

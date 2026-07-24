@@ -51,13 +51,14 @@ async function syncToSupabase(payload, eventType) {
     if (upsertErr) throw new Error(`Supabase payment upsert failed: ${upsertErr.message}`);
 
     if (eventType === 'payment.captured' && bookingId) {
-        const [statusResult, { data: existingInvoice }] = await Promise.all([
+        const [statusResult, { data: existingInvoice }, { data: paymentRow }] = await Promise.all([
             supabase.from('bookings').update({ status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', bookingId),
-            supabase.from('invoices').select('id').eq('booking_id', bookingId).maybeSingle()
+            supabase.from('invoices').select('id').eq('booking_id', bookingId).maybeSingle(),
+            supabase.from('payments').select('id').eq('payment_id', paymentId).maybeSingle()
         ]);
         if (statusResult.error) logEvent({ message: 'Booking status update failed', error: statusResult.error.message, bookingId }, 'ERROR');
         if (!existingInvoice) {
-            const { error: invErr } = await supabase.from('invoices').insert({ booking_id: bookingId, customer_id: customerId, subtotal_paise: amount, tax_paise: 0, total_paise: amount, status: 'issued' });
+            const { error: invErr } = await supabase.from('invoices').insert({ booking_id: bookingId, customer_id: customerId, payment_id: paymentRow?.id || null, subtotal_paise: amount, tax_paise: 0, total_paise: amount, status: 'issued' });
             if (invErr) logEvent({ message: 'Invoice insert failed', error: invErr.message, bookingId }, 'ERROR');
         }
     }

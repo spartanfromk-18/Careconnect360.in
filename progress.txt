@@ -95,3 +95,7 @@ Files: api/submit.js, api/security-utils.js
 Verification: lint=skip (no lint script) build=pass (node -c syntax check) tests=skip (no test script) coderabbit=skip (CLI not installed)
 Files: api/webhook-razorpay.js
 ---
+[2026-07-25T16:00:00Z] TASK-021: Added payments.id (UUID) lookup to existing Promise.all before invoice insert, matching on payments.payment_id (Razorpay text ID). Populates invoices.payment_id FK so it's no longer permanently null. Falls back to null if lookup fails (payments row guaranteed to exist at this point since we just upserted it).
+Verification: lint=skip (no lint script) build=pass (node -c syntax check) tests=skip (no test script) coderabbit=skip (CLI not installed)
+Files: api/webhook-razorpay.js
+---
