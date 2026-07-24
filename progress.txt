@@ -1,0 +1,8 @@
+RALPH LOOP — PROGRESS LOG
+Project: CareConnect360.in
+Source: audit_report.md (2026-07-23)
+Rule: append-only. Never delete or edit a prior entry.
+
+---
+[SEED] Loop initialized. 21 tasks queued across 4 phases (Critical Blockers → Security Hardening → Performance → Maintainability). See PRD.md for full task list and PROMPT.md for the per-iteration gate (lint/build/tests + CodeRabbit review, required before every commit).
+---
