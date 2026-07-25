@@ -1,5 +1,6 @@
  import crypto from 'crypto';
 import Razorpay from 'razorpay';
+import { hashPII, extractIP } from './security-utils.js';
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { createClient } from '@supabase/supabase-js';
@@ -37,8 +38,6 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-
-const hashPII = data => crypto.createHash('sha256').update(String(data || '')).digest('hex').slice(0, 16);
 
 const sanitize = str => typeof str !== 'string' ? '' : str.replace(/[<>"'&]/g, c => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '&': '&amp;' })[c]).trim();
 
@@ -80,7 +79,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-  const rawIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+  const rawIp = extractIP(req.headers);
+  if (rawIp === 'invalid') {
+    return res.status(400).json({ error: 'Invalid client IP address.' });
+  }
   const ipKey = hashPII(rawIp);
   
   // Fail-Open Rate Limiting: If Upstash is down, we do not block patient care

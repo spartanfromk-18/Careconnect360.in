@@ -131,9 +131,12 @@ export default async function handler(req, res) {
     }
 
     if (template) {
-        sendEmail(template.to, template.subject, template.html)
-            .then(() => logEvent({ ...logData, message: 'Admin alert email sent' }, 'INFO'))
-            .catch(err => logEvent({ ...logData, error: `Email failed: ${err.message}` }, 'WARN'));
+        try {
+            await sendEmail(template.to, template.subject, template.html);
+            logEvent({ ...logData, message: 'Admin alert email sent' }, 'INFO');
+        } catch (err) {
+            logEvent({ ...logData, error: `Email failed: ${err.message}` }, 'ERROR');
+        }
     }
 
     logEvent(logData, 'INFO');

@@ -1,5 +1,6 @@
 // Security utility functions for API handlers
 import crypto from 'crypto';
+import net from 'net';
 
 const CONFIG = {
   AMOUNT_LIMITS: { MIN: 1, MAX: 500000 },
@@ -11,10 +12,10 @@ export const hashPII = (data) => {
 };
 
 export const extractIP = (headers) => {
-  const rawIp = headers['x-forwarded-for']?.split(',')[0].trim() || 'unknown';
-  // Basic IP validation regex
-  const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
-  if (rawIp !== 'unknown' && !ipRegex.test(rawIp)) {
+  // ponytail: .pop() reads the LAST entry (Vercel-appended, trustworthy), not the first (attacker-controlled)
+  const rawIp = headers['x-forwarded-for']?.split(',').pop()?.trim() || 'unknown';
+  // ponytail: net.isIP handles both IPv4 and IPv6 — replaces the old IPv4-only regex
+  if (rawIp !== 'unknown' && !net.isIP(rawIp)) {
     return 'invalid';
   }
   return rawIp;
@@ -29,7 +30,8 @@ export const validateAmount = (amount) => {
 };
 
 export const validateCurrency = (currency) => {
-  const validatedCurrency = currency?.toUpperCase() || CONFIG.DEFAULT_CURRENCY;
+  if (typeof currency !== 'string') throw new Error(`Invalid currency type: expected string, got ${typeof currency}`);
+  const validatedCurrency = currency.toUpperCase() || 'INR';
   if (!CONFIG.ALLOWED_CURRENCIES.includes(validatedCurrency)) {
     throw new Error(`Unsupported currency: ${currency}`);
   }
