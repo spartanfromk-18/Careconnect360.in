@@ -276,7 +276,7 @@ Triggers on push to `main`/`security-and-cleanup`, PRs to `main`, and manual dis
 | 1. Supply Chain Security | `npm audit --audit-level=moderate` | Known dependency vulnerabilities |
 | 2. Secrets Scanning | Gitleaks (full history) | Hardcoded secrets in git history |
 | 3. CodeQL Analysis | GitHub CodeQL (`security-extended` + `security-and-quality`) | Semantic security vulnerabilities in JS |
-| 4. Frontend Quality | `node --check` on all API files, HTML structure validation, grep for `rzp_live_`/`sk_live_`/Airtable tokens | Syntax errors, missing DOCTYPE/viewport, leaked production secrets |
+| 4. Frontend Quality | `node --check` on all API files, HTML structure validation, grep for `RAZORPAY_LIVE_KEY`/`STRIPE_LIVE_KEY`/Airtable tokens | Syntax errors, missing DOCTYPE/viewport, leaked production secrets |
 | 5. Lighthouse CI | `@lhci/cli` | Performance, accessibility, SEO audits |
 | 6. Deployment Readiness | Aggregates results from jobs 1–5 | Pass/fail summary gate |
 
