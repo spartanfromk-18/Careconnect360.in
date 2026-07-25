@@ -12,7 +12,7 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error('CRITICAL: JWT_SECRET
 if (!ADMIN_PASSWORD_HASH) throw new Error('CRITICAL: ADMIN_PASSWORD_HASH must be defined.');
 
 const ADMIN_ALLOWED_IPS = (process.env.ADMIN_ALLOWED_IPS || '').split(',').map(ip => ip.trim()).filter(Boolean);
-const isIpAllowed = req => ADMIN_ALLOWED_IPS.length === 0 || ADMIN_ALLOWED_IPS.includes(req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || '');
+const isIpAllowed = req => ADMIN_ALLOWED_IPS.length === 0 || ADMIN_ALLOWED_IPS.includes(req.headers['x-forwarded-for']?.split(',').pop()?.trim() || req.socket?.remoteAddress || '');
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
@@ -26,8 +26,10 @@ const loginLimiter = new Ratelimit({
 
 const logEvent = (data, level = 'INFO') => console.log(JSON.stringify({ level, timestamp: new Date().toISOString(), source: 'admin-login', ...data }));
 
+const ALLOWED_PREVIEW_ORIGINS = (process.env.ALLOWED_PREVIEW_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+
 const setCorsHeaders = (res, reqOrigin) => {
-  if (reqOrigin === ALLOWED_ORIGIN || reqOrigin.includes('localhost') || reqOrigin.endsWith('.vercel.app')) {
+  if (reqOrigin === ALLOWED_ORIGIN || ALLOWED_PREVIEW_ORIGINS.includes(reqOrigin)) {
     res.setHeader('Access-Control-Allow-Origin', reqOrigin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -43,7 +45,7 @@ export default async function handler(req, res) {
 
   if (!isIpAllowed(req)) return res.status(403).json({ error: 'Access denied.' });
 
-  const rawIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+  const rawIp = req.headers['x-forwarded-for']?.split(',').pop()?.trim() || req.socket?.remoteAddress || 'unknown';
   const ipKey = crypto.createHash('sha256').update(rawIp).digest('hex').slice(0, 16);
 
   const { success } = await loginLimiter.limit(ipKey);

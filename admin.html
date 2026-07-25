@@ -256,7 +256,14 @@
             } catch (err) {
                 console.error(`[Admin] Fetch error for ${type}:`, err);
                 const tbody = document.getElementById(tbodyId);
-                tbody.innerHTML = `<tr><td colspan="${colSpan}" style="color:red; text-align:center;">Error: ${err.message}</td></tr>`;
+                tbody.textContent = '';
+                const errTr = document.createElement('tr');
+                const errTd = document.createElement('td');
+                errTd.setAttribute('colspan', String(colSpan));
+                errTd.style.cssText = 'color:red; text-align:center;';
+                errTd.textContent = `Error: ${err.message}`;
+                errTr.appendChild(errTd);
+                tbody.appendChild(errTr);
             }
         }
 

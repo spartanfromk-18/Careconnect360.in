@@ -27,7 +27,7 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
-const createRateLimiter = () => new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(CONFIG.RATE_LIMITS.STANDARD.requests, CONFIG.RATE_LIMITS.STANDARD.window) });
+const ratelimit = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(CONFIG.RATE_LIMITS.STANDARD.requests, CONFIG.RATE_LIMITS.STANDARD.window) });
 
 const setSecurityHeaders = (res, reqOrigin) => {
   if (reqOrigin === process.env.ALLOWED_ORIGIN) {
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       if (existingOrder) return res.status(200).json(JSON.parse(existingOrder));
     }
 
-    const { success, reset } = await createRateLimiter().limit(ipKey);
+    const { success, reset } = await ratelimit.limit(ipKey);
 
     if (!success) return res.status(429).json({ error: 'Too many payment requests.', requestId, retryAfter: Math.ceil((reset - Date.now()) / 1000) });
 
