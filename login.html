@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login — CareConnect</title>
+    <style>
+        :root { --brand-blue: #0056b3; --bg-light: #f8f9fa; --border: #dee2e6; }
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: var(--bg-light); color: #212529; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+        .card { background: white; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 2.5rem; width: 100%; max-width: 380px; }
+        h1 { margin: 0 0 0.25rem; font-size: 1.4rem; color: var(--brand-blue); text-align: center; }
+        .subtitle { margin: 0 0 1.75rem; color: #6c757d; font-size: 0.9rem; text-align: center; }
+        label { display: block; margin-bottom: 0.4rem; font-weight: 600; font-size: 0.9rem; }
+        input[type="password"] { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 1rem; margin-bottom: 1.25rem; }
+        input[type="password"]:focus { outline: none; border-color: var(--brand-blue); box-shadow: 0 0 0 3px rgba(0,86,179,0.12); }
+        .btn { width: 100%; padding: 11px 16px; cursor: pointer; background: var(--brand-blue); color: white; border: none; border-radius: 4px; font-size: 1rem; font-weight: 600; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .error { display: none; margin-top: 1rem; padding: 10px 12px; background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; border-radius: 4px; font-size: 0.9rem; }
+        .error.visible { display: block; }
+        .footnote { margin-top: 1.5rem; font-size: 0.8rem; color: #adb5bd; text-align: center; }
+        .footnote a { color: var(--brand-blue); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>CareConnect Admin</h1>
+        <p class="subtitle">Restricted area — authorized access only</p>
+        <form id="login-form" novalidate>
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Enter admin password" autocomplete="current-password" required>
+            <button class="btn" id="login-btn" type="submit">Sign In</button>
+        </form>
+        <p class="error" id="error-box" role="alert"></p>
+        <p class="footnote">Have an active session? <a href="/admin">Go to the dashboard</a></p>
+    </div>
+    <script>
+        (function () {
+            const form = document.getElementById('login-form');
+            const passwordInput = document.getElementById('password');
+            const loginBtn = document.getElementById('login-btn');
+            const errorBox = document.getElementById('error-box');
+
+            const showError = (message) => {
+                errorBox.textContent = message;
+                errorBox.classList.add('visible');
+            };
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                errorBox.classList.remove('visible');
+
+                const password = passwordInput.value;
+                if (!password) {
+                    showError('Please enter the admin password.');
+                    return;
+                }
+
+                loginBtn.disabled = true;
+                loginBtn.textContent = 'Signing in…';
+
+                try {
+                    const res = await fetch('/api/admin-login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password })
+                    });
+
+                    const data = await res.json().catch(() => ({}));
+
+                    if (res.ok && data.token) {
+                        sessionStorage.setItem('admin_token', data.token);
+                        window.location.href = '/admin';
+                        return;
+                    }
+
+                    const message = res.status === 429
+                        ? 'Too many login attempts. Please wait a few minutes and try again.'
+                        : res.status === 403
+                            ? 'Access denied from your network. Contact the site administrator.'
+                            : (data.error || 'Sign-in failed. Please check your password and try again.');
+                    showError(message);
+                } catch (err) {
+                    console.error('[Admin] Login error:', err);
+                    showError('Network error. Please try again.');
+                } finally {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Sign In';
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
