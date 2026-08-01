@@ -1,4 +1,4 @@
- // CRITICAL: Must be at the absolute top level of the module for Vercel to parse it
+// CRITICAL: Must be at the absolute top level of the module for Vercel to parse it
 export const config = {
   api: { bodyParser: false },
 };
@@ -7,8 +7,10 @@ import crypto from 'crypto';
 import getRawBody from 'raw-body';
 import { Redis } from "@upstash/redis";
 import { createClient } from '@supabase/supabase-js';
+import { makeLogger, captureException } from '../lib/logger.js';
+import { sendPaymentFailedAlert, sendRefundAlert } from '../lib/email.js';
 
-const REQUIRED_ENV = ['RAZORPAY_WEBHOOK_SECRET', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'RESEND_API_KEY', 'ADMIN_EMAIL', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
+const REQUIRED_ENV = ['RAZORPAY_WEBHOOK_SECRET', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'RESEND_API_KEY', 'ADMIN_EMAIL', 'SENDER_EMAIL', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
 for (const key of REQUIRED_ENV) {
     if (!process.env[key]) throw new Error(`[webhook] FATAL: missing ${key}`);
 }
@@ -25,7 +27,13 @@ const verifySignature = (rawBody, signature) => {
     } catch { return false; }
 };
 
-const logEvent = (data, level = 'INFO') => console.log(JSON.stringify({ level, timestamp: new Date().toISOString(), source: 'webhook-razorpay', ...data }));
+const log = makeLogger('webhook-razorpay');
+
+async function findBooking(paymentId) {
+    const { data: bookingRow, error: lookupErr } = await supabase.from('bookings').select('id, customer_id').eq('payment_id', paymentId).maybeSingle();
+    if (lookupErr) throw new Error(`Booking lookup failed: ${lookupErr.message}`);
+    return bookingRow || null;
+}
 
 async function syncToSupabase(payload, eventType) {
     const payment = payload.payload.payment?.entity || {};
@@ -38,41 +46,48 @@ async function syncToSupabase(payload, eventType) {
     const statusMap = { 'payment.captured': 'captured', 'payment.failed': 'failed', 'payment.authorized': 'authorized', 'order.paid': 'captured', 'refund.created': 'refunded', 'refund.processed': 'refunded' };
     
     let bookingId = null;
+    let customerId = null;
     if (paymentId !== 'unknown') {
-        const { data: bookingRow, error: lookupErr } = await supabase.from('bookings').select('id').eq('payment_id', paymentId).maybeSingle();
-        if (lookupErr) logEvent({ message: 'Booking lookup failed', error: lookupErr.message, paymentId }, 'ERROR');
-        else if (bookingRow) bookingId = bookingRow.id;
+        // payment.captured races with /api/submit inserting the booking row.
+        // Retry the lookup with bounded backoff so invoices/linking are never
+        // skipped when the webhook arrives before the booking lands in Supabase.
+        // Total sleep is capped at 500ms to stay well under the 10s serverless ceiling.
+        const attempts = eventType === 'payment.captured' ? 2 : 1;
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+            const bookingRow = await findBooking(paymentId);
+            if (bookingRow) { bookingId = bookingRow.id; customerId = bookingRow.customer_id || null; break; }
+            if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 500));
+        }
     }
 
     const fields = { payment_id: paymentId, webhook_event_id: payload.id, booking_id: bookingId, order_id: orderId, event_type: eventType, amount_paise: amount, currency: currency, status: statusMap[eventType] || 'unknown', customer_email: notes.customerEmail || '', customer_phone: notes.customerPhone || '', customer_name: notes.name || '', razorpay_notes: notes };
     
-    const { error: upsertErr } = await supabase.from('payments').upsert(fields, { onConflict: 'webhook_event_id', ignoreDuplicates: true });
+    // NOTE: Razorpay emits MULTIPLE events per payment (authorized/captured/
+    // order.paid/failed/refund.*), each with a distinct webhook_event_id while
+    // the payments table ALSO enforces UNIQUE(payment_id). Targeting the event
+    // id alone would 500 on the second distinct event (unique violation), so we
+    // reconcile on payment_id instead — one canonical ledger row per payment,
+    // latest event wins. Duplicate event replays are already deduped by the
+    // Redis idempotency guard before we reach this point.
+    const { error: upsertErr } = await supabase.from('payments').upsert(fields, { onConflict: 'payment_id', ignoreDuplicates: false });
     if (upsertErr) throw new Error(`Supabase payment upsert failed: ${upsertErr.message}`);
 
     if (eventType === 'payment.captured' && bookingId) {
-        const { error: statusErr } = await supabase.from('bookings').update({ status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', bookingId);
-        if (statusErr) logEvent({ message: 'Booking status update failed', error: statusErr.message, bookingId }, 'ERROR');
-        
-        const { data: existingInvoice } = await supabase.from('invoices').select('id').eq('booking_id', bookingId).maybeSingle();
+        const [statusResult, { data: existingInvoice }, { data: paymentRow }] = await Promise.all([
+            supabase.from('bookings').update({ status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', bookingId),
+            supabase.from('invoices').select('id').eq('booking_id', bookingId).maybeSingle(),
+            supabase.from('payments').select('id').eq('payment_id', paymentId).maybeSingle()
+        ]);
+        if (statusResult.error) log({ message: 'Booking status update failed', error: statusResult.error.message, bookingId }, 'ERROR');
         if (!existingInvoice) {
-            const { error: invErr } = await supabase.from('invoices').insert({ booking_id: bookingId, customer_id: null, subtotal_paise: amount, tax_paise: 0, total_paise: amount, status: 'issued' });
-            if (invErr) logEvent({ message: 'Invoice insert failed', error: invErr.message, bookingId }, 'ERROR');
+            const { error: invErr } = await supabase.from('invoices').upsert(
+                { booking_id: bookingId, customer_id: customerId, payment_id: paymentRow?.id || null, subtotal_paise: amount, tax_paise: 0, total_paise: amount, status: 'issued' },
+                { onConflict: 'booking_id', ignoreDuplicates: true }
+            );
+            if (invErr) log({ message: 'Invoice insert failed', error: invErr.message, bookingId }, 'ERROR');
         }
     }
     return bookingId;
-}
-
-async function sendEmail(to, subject, html) {
-    if (!to) return;
-    const res = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: 'CareConnect <noreply@careconnect360.in>', to: [to], subject, html }) });
-    if (!res.ok) throw new Error(`Resend failed: ${await res.text()}`);
-}
-
-function getEmailTemplate(type, data) {
-    const baseStyle = `font-family: sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto;`;
-    if (type === 'failed') return { to: process.env.ADMIN_EMAIL, subject: `⚠️ Payment Failed — ${data.paymentId}`, html: `<div style="${baseStyle}"><h2>Payment Failure Alert</h2><p><strong>Payment ID:</strong> ${data.paymentId}</p><p><strong>Error:</strong> ${data.errorCode} - ${data.errorDesc}</p></div>` };
-    if (type === 'refund') return { to: process.env.ADMIN_EMAIL, subject: `↩️ Refund Processed — ${data.paymentId}`, html: `<div style="${baseStyle}"><h2>Refund Notification</h2><p>A refund of <strong>₹${data.amount / 100}</strong> has been processed for Payment ID: ${data.paymentId}.</p></div>` };
-    return null;
 }
 
 export default async function handler(req, res) {
@@ -87,7 +102,13 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid signature' });
     }
 
-    const payload = JSON.parse(rawBody.toString('utf8'));
+    let payload;
+    try {
+        payload = JSON.parse(rawBody.toString('utf8'));
+    } catch (parseErr) {
+        log({ message: 'Invalid JSON payload', error: parseErr.message }, 'ERROR');
+        return res.status(400).json({ error: 'Invalid JSON payload' });
+    }
     const eventId = payload.id;
     const eventType = payload.event;
     const payment = payload.payload.payment?.entity || {};
@@ -98,33 +119,38 @@ export default async function handler(req, res) {
         const result = await redis.set(`webhook:event:${eventId}`, '1', { nx: true, ex: 86400 });
         isDuplicate = !result;
     } catch (redisErr) {
-        logEvent({ ...logData, error: 'Redis idempotency check failed, proceeding with caution', message: redisErr.message }, 'WARN');
+        log({ ...logData, error: 'Redis idempotency check failed, proceeding with caution', message: redisErr.message }, 'WARN');
         isDuplicate = false; // Fail-open: Supabase upsert onConflict will catch duplicates if Redis is down
     }
 
     if (isDuplicate) {
-        logEvent({ ...logData, message: 'Duplicate webhook ignored' }, 'INFO');
+        log({ ...logData, message: 'Duplicate webhook ignored' }, 'INFO');
         return res.status(200).json({ ok: true });
     }
 
-    let template = null;
-    if (eventType === 'payment.failed') template = getEmailTemplate('failed', { ...payment, errorDesc: payment.error_description, errorCode: payment.error_code });
-    else if (eventType === 'refund.processed') template = getEmailTemplate('refund', payload.payload.refund?.entity || {});
+    const isPaymentFailed = eventType === 'payment.failed';
+    const isRefundProcessed = eventType === 'refund.processed';
+    // NOTE: 'refund.created' is handled in syncToSupabase (statusMap) but does NOT send an email here.
+    // Decision needed: should 'refund.created' also trigger an admin notification?
 
     try {
         await syncToSupabase(payload, eventType);
-        logEvent({ ...logData, message: 'Supabase ledger synced successfully' }, 'INFO');
+        log({ ...logData, message: 'Supabase ledger synced successfully' }, 'INFO');
     } catch (err) {
-        logEvent({ ...logData, error: `CRITICAL LEDGER FAILURE: ${err.message}` }, 'ERROR');
+        log({ ...logData, error: `CRITICAL LEDGER FAILURE: ${err.message}` }, 'ERROR');
+        captureException(err, { event: 'LEDGER_SYNC_FAILED', ...logData });
         return res.status(500).json({ error: 'Ledger sync failed, retrying later' });
     }
 
-    if (template) {
-        sendEmail(template.to, template.subject, template.html)
-            .then(() => logEvent({ ...logData, message: 'Admin alert email sent' }, 'INFO'))
-            .catch(err => logEvent({ ...logData, error: `Email failed: ${err.message}` }, 'WARN'));
+    if (isPaymentFailed) {
+        await Promise.allSettled([sendPaymentFailedAlert({ paymentId: payment.id, errorCode: payment.error_code, errorDesc: payment.error_description })]);
+        log({ ...logData, message: 'Admin payment-failed alert dispatched' }, 'INFO');
+    } else if (isRefundProcessed) {
+        const refund = payload.payload.refund?.entity || {};
+        await Promise.allSettled([sendRefundAlert({ paymentId: refund.payment_id || payment.id, amountPaise: refund.amount || 0 })]);
+        log({ ...logData, message: 'Admin refund alert dispatched' }, 'INFO');
     }
 
-    logEvent(logData, 'INFO');
+    log(logData, 'INFO');
     return res.status(200).json({ ok: true });
 }
