@@ -69,13 +69,16 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch full history for accurate scanning
+          fetch-depth: 0
 
-      - name: 🛡️ Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }} # Optional for orgs
+      - name: 🛡️ Run Gitleaks (directory scan)
+        run: |
+          docker run --rm -v "$PWD:/path" zricethezav/gitleaks:latest \
+            dir /path \
+            --redact \
+            --report-format sarif \
+            --report-path /path/results.sarif \
+            --exit-code 1
 
   # ─────────────────────────────────────────────────────────────
   # JOB 3: CODEQL ADVANCED SECURITY ANALYSIS
