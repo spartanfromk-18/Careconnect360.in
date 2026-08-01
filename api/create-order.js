@@ -2,8 +2,7 @@ import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import SecurityUtils, { setCorsHeaders } from './security-utils.js';
-import { makeLogger, captureException } from '../lib/logger.js';
+import SecurityUtils from './security-utils.js';
 
 const REQUIRED_ENV = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'ALLOWED_ORIGIN'];
 for (const key of REQUIRED_ENV) {
@@ -28,14 +27,21 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
-const ratelimit = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(CONFIG.RATE_LIMITS.STANDARD.requests, CONFIG.RATE_LIMITS.STANDARD.window) });
+const createRateLimiter = () => new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(CONFIG.RATE_LIMITS.STANDARD.requests, CONFIG.RATE_LIMITS.STANDARD.window) });
 
-const log = makeLogger('create-order');
+const setSecurityHeaders = (res, reqOrigin) => {
+  if (reqOrigin === process.env.ALLOWED_ORIGIN) {
+    res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN);
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Idempotency-Key');
+  res.setHeader('Access-Control-Max-Age', '86400');
+};
 
 export default async function handler(req, res) {
   const requestId = SecurityUtils.generateRequestId();
-  setCorsHeaders(res, req.headers['origin'] || '', { allowHeaders: 'Content-Type, Authorization, X-Idempotency-Key' });
-  res.setHeader('Access-Control-Max-Age', '86400');
+  setSecurityHeaders(res, req.headers['origin'] || '');
 
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed', requestId });
@@ -52,7 +58,7 @@ export default async function handler(req, res) {
       if (existingOrder) return res.status(200).json(JSON.parse(existingOrder));
     }
 
-    const { success, reset } = await ratelimit.limit(ipKey);
+    const { success, reset } = await createRateLimiter().limit(ipKey);
 
     if (!success) return res.status(429).json({ error: 'Too many payment requests.', requestId, retryAfter: Math.ceil((reset - Date.now()) / 1000) });
 
@@ -92,8 +98,7 @@ export default async function handler(req, res) {
       keyId: process.env.RAZORPAY_KEY_ID, receiptId: finalReceiptId, requestId
     });
   } catch (error) {
-    log({ event: 'ORDER_CREATION_FAILED', error: error.message, requestId }, 'ERROR');
-    captureException(error, { event: 'ORDER_CREATION_FAILED', requestId });
+    console.error('[create-order] Error:', error.message);
     return res.status(500).json({ error: 'Payment initialization failed.', requestId });
   }
 }
