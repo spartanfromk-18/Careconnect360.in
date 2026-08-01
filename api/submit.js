@@ -1,14 +1,17 @@
- import crypto from 'crypto';
+import crypto from 'crypto';
 import Razorpay from 'razorpay';
+import { hashPII, extractIP, withTimeout } from './security-utils.js';
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { createClient } from '@supabase/supabase-js';
+import { makeLogger, captureException } from '../lib/logger.js';
+import { sendBookingConfirmation, sendNewBookingAlert, sendCallbackAlert, sendApplicationReceived } from '../lib/email.js';
 
 const REQUIRED_ENV = [
   'ALLOWED_ORIGIN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN',
   'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET',
   'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
-  'RESEND_API_KEY', 'ADMIN_EMAIL'
+  'RESEND_API_KEY', 'ADMIN_EMAIL', 'SENDER_EMAIL'
 ];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) throw new Error(`[submit] FATAL: missing ${key}`);
@@ -38,36 +41,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const hashPII = data => crypto.createHash('sha256').update(String(data || '')).digest('hex').slice(0, 16);
-
 const sanitize = str => typeof str !== 'string' ? '' : str.replace(/[<>"'&]/g, c => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '&': '&amp;' })[c]).trim();
 
-// Added structured logging to prevent ReferenceErrors during catch blocks
-const logEvent = (data, level = 'INFO') => console.log(JSON.stringify({ level, timestamp: new Date().toISOString(), source: 'submit', ...data }));
+const log = makeLogger('submit');
+
+const ALLOWED_PREVIEW_ORIGINS = (process.env.ALLOWED_PREVIEW_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 
 const setCors = (res, reqOrigin) => {
-  // Dynamically allow production, localhost, and Vercel preview environments
-  const isAllowed = reqOrigin === process.env.ALLOWED_ORIGIN || 
-                    reqOrigin.includes('localhost') || 
-                    reqOrigin.endsWith('.vercel.app');
-  
+  const isAllowed = reqOrigin === process.env.ALLOWED_ORIGIN || ALLOWED_PREVIEW_ORIGINS.includes(reqOrigin);
   if (isAllowed && reqOrigin) {
     res.setHeader('Access-Control-Allow-Origin', reqOrigin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  // CRITICAL: Added 'Authorization' for logged-in patient bookings
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Idempotency-Key');
   res.setHeader('Vary', 'Origin');
-};
-
-const sendResend = async (to, subject, html) => {
-  if (!to) return;
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: 'CareConnect <noreply@careconnect360.in>', to: [to], subject, html })
-  });
-  if (!res.ok) throw new Error(`Resend failed: ${await res.text()}`);
 };
 
 // [RESTORED] Resolves a logged-in customer's booking to their profile
@@ -83,7 +70,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 
-  const rawIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
+  const rawIp = extractIP(req.headers);
+  if (rawIp === 'invalid') {
+    return res.status(400).json({ error: 'Invalid client IP address.' });
+  }
   const ipKey = hashPII(rawIp);
   
   // Fail-Open Rate Limiting: If Upstash is down, we do not block patient care
@@ -91,7 +81,7 @@ export default async function handler(req, res) {
     const { success } = await limiter.limit(ipKey);
     if (!success) return res.status(429).json({ error: 'Too many requests. Try again in 5 minutes.' });
   } catch (redisError) {
-    logEvent({ event: 'RATE_LIMIT_BYPASS', error: redisError.message, ipKey }, 'WARN');
+    log({ event: 'RATE_LIMIT_BYPASS', error: redisError.message, ipKey }, 'WARN');
   }
 
   let body;
@@ -109,6 +99,7 @@ export default async function handler(req, res) {
   const phone = sanitize(body.phone || body.Phone || '');
   const service = sanitize(body.service || body.Service || '');
   const date = sanitize(body.date || body.PreferredDate || '');
+  const preferredTime = sanitize(body.preferred_time || body.date || body.PreferredDate || '');
   const message = sanitize(body.message || body.Message || '');
 
   if (!name || !phone) return res.status(400).json({ error: 'Name and phone number are required.' });
@@ -119,6 +110,33 @@ export default async function handler(req, res) {
   try {
     if (type === 'booking') {
       if (!payment_id) return res.status(402).json({ error: 'Payment verification required.' });
+
+      const { razorpay_order_id, razorpay_signature } = body;
+      if (!razorpay_order_id || !razorpay_signature) {
+        return res.status(402).json({ error: 'Missing Razorpay order or signature.' });
+      }
+
+      let expectedSig;
+      try {
+        const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
+        hmac.update(`${razorpay_order_id}|${payment_id}`);
+        expectedSig = hmac.digest('hex');
+      } catch (hmacErr) {
+        log({ event: 'HMAC_GENERATION_FAILED', error: hmacErr.message, ...logContext }, 'ERROR');
+        return res.status(500).json({ error: 'Signature verification failed.' });
+      }
+
+      try {
+        const sigBuf = Buffer.from(razorpay_signature, 'hex');
+        const expectedBuf = Buffer.from(expectedSig, 'hex');
+        if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+          log({ event: 'SIGNATURE_MISMATCH', payment_id, ...logContext }, 'WARN');
+          return res.status(402).json({ error: 'Payment signature verification failed.' });
+        }
+      } catch (cmpErr) {
+        log({ event: 'SIGNATURE_COMPARE_ERROR', error: cmpErr.message, ...logContext }, 'ERROR');
+        return res.status(402).json({ error: 'Payment signature verification failed.' });
+      }
 
       let customerId = null;
       const bearerToken = getBearerToken(req);
@@ -131,14 +149,16 @@ export default async function handler(req, res) {
 
       const claimed = await redis.set(`payment_used:${payment_id}`, '1', { nx: true, ex: 86400 });
       if (!claimed) {
-        logEvent({ event: 'PAYMENT_REPLAY_BLOCKED', payment_id, ...logContext }, 'WARN');
+        log({ event: 'PAYMENT_REPLAY_BLOCKED', payment_id, ...logContext }, 'WARN');
         return res.status(409).json({ error: 'This payment has already been used for a booking.' });
       }
 
       let payment;
       try { 
-        payment = await razorpay.payments.fetch(payment_id); 
+        payment = await withTimeout(razorpay.payments.fetch(payment_id), 5000, 'razorpay.payments.fetch'); 
       } catch (err) {
+        log({ event: 'PAYMENT_FETCH_FAILED', error: err.message, payment_id, ...logContext }, 'ERROR');
+        captureException(err, { event: 'PAYMENT_FETCH_FAILED', payment_id, ...logContext });
         await redis.del(`payment_used:${payment_id}`);
         return res.status(402).json({ error: 'Payment could not be verified.' });
       }
@@ -157,7 +177,7 @@ export default async function handler(req, res) {
       }
 
       try {
-        const { error } = await supabase.from('bookings').insert({
+        const { data: inserted, error } = await supabase.from('bookings').insert({
           name, phone, email,
           care_type: sanitize(body.care_type || ''),
           service, location: sanitize(body.location || ''),
@@ -165,29 +185,38 @@ export default async function handler(req, res) {
           notes: message, status: 'confirmed', payment_id,
           customer_id: customerId, amount_paise: payment.amount,
           created_at: new Date().toISOString()
-        });
+        }).select('id').single();
 
         if (error) throw new Error(`Supabase insert failed: ${error.message}`);
+
+        // Belt-and-braces for the payment.captured webhook race: if the webhook
+        // already processed this payment BEFORE this booking row existed, it
+        // could not create the invoice. Ensure exactly one invoice exists here
+        // (unique index on invoices.booking_id makes the upsert idempotent).
+        const { data: payRow } = await supabase.from('payments').select('id').eq('payment_id', payment_id).maybeSingle();
+        const { error: invErr } = await supabase.from('invoices').upsert(
+          { booking_id: inserted.id, customer_id: customerId, payment_id: payRow?.id || null, subtotal_paise: payment.amount, tax_paise: 0, total_paise: payment.amount, status: 'issued' },
+          { onConflict: 'booking_id', ignoreDuplicates: true }
+        );
+        if (invErr) log({ event: 'INVOICE_INSERT_FAILED', error: invErr.message, payment_id, booking_id: inserted.id, ...logContext }, 'ERROR');
       } catch (dbError) {
-        logEvent({ event: 'DB_INSERT_FAILED', error: dbError.message, payment_id, ...logContext }, 'CRITICAL');
+        log({ event: 'DB_INSERT_FAILED', error: dbError.message, payment_id, ...logContext }, 'CRITICAL');
+        captureException(dbError, { event: 'DB_INSERT_FAILED', payment_id, ...logContext });
         
         try {
           await razorpay.payments.refund(payment_id, { amount: payment.amount });
-          logEvent({ event: 'AUTO_REFUND_SUCCESS', payment_id }, 'INFO');
+          log({ event: 'AUTO_REFUND_SUCCESS', payment_id }, 'INFO');
         } catch (refundErr) {
-          logEvent({ event: 'AUTO_REFUND_FAILED', payment_id, error: refundErr.message }, 'CRITICAL');
+          log({ event: 'AUTO_REFUND_FAILED', payment_id, error: refundErr.message }, 'CRITICAL');
         }
         
         await redis.del(`payment_used:${payment_id}`);
         return res.status(500).json({ error: 'Booking failed. A full refund has been initiated.' });
       }
 
-      const customerHtml = `<p>Hi ${name},</p><p>We have received your booking fee of ₹500. Our care coordinator will contact you shortly at ${phone}.</p>`;
-      const adminHtml = `<p>New paid booking received.</p><p>Name: ${name}<br>Phone: ${phone}<br>Service: ${service}</p>`;
-
       await Promise.allSettled([
-        sendResend(email, 'Booking Confirmed - CareConnect360', customerHtml),
-        sendResend(process.env.ADMIN_EMAIL, '🔔 New Paid Booking', adminHtml)
+        sendBookingConfirmation({ name, email, phone }),
+        sendNewBookingAlert({ name, phone, service })
       ]);
 
       return res.status(200).json({ ok: true });
@@ -197,14 +226,13 @@ export default async function handler(req, res) {
       const { error } = await supabase.from('callbacks').insert({
         name,
         phone,
-        preferred_time: date,
+        preferred_time: preferredTime,
         created_at: new Date().toISOString()
       });
 
       if (error) throw new Error(`Supabase callback insert failed: ${error.message}`);
 
-      const adminHtml = `<p>New callback request.</p><p>Name: ${name}<br>Phone: ${phone}</p>`;
-      await sendResend(process.env.ADMIN_EMAIL, '🔔 New Callback Request', adminHtml).catch(() => {});
+      await Promise.allSettled([sendCallbackAlert({ name, phone })]);
       return res.status(200).json({ ok: true });
     }
 
@@ -228,12 +256,12 @@ export default async function handler(req, res) {
 
       if (error) throw new Error(`Supabase application insert failed: ${error.message}`);
 
-      const applicantHtml = `<p>Hi ${firstName},</p><p>Thank you for applying to CareConnect360. We have received your application.</p>`;
-      await sendResend(email, 'Application Received - CareConnect360', applicantHtml).catch(() => {});
+      await Promise.allSettled([sendApplicationReceived({ firstName, email })]);
       return res.status(200).json({ ok: true });
     }
   } catch (error) {
-    logEvent({ event: 'UNHANDLED_ERROR', error: error.message, ...logContext }, 'ERROR');
+    log({ event: 'UNHANDLED_ERROR', error: error.message, ...logContext }, 'ERROR');
+    captureException(error, { event: 'UNHANDLED_ERROR', ...logContext });
     return res.status(500).json({ error: 'An internal error occurred.' });
   }
 }

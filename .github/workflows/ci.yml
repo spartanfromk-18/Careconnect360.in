@@ -49,7 +49,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: 🚨 NPM Security Audit
-        run: npm audit --audit-level=moderate --json > audit-results.json || true
+        run: npm audit --audit-level=moderate --json > audit-results.json
         continue-on-error: false
 
       - name: 📊 Upload Audit Results
@@ -69,16 +69,13 @@ jobs:
       - name: 📥 Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Fetch full history for accurate scanning
 
-      - name: 🛡️ Run Gitleaks (directory scan)
-        run: |
-          docker run --rm -v "$PWD:/path" zricethezav/gitleaks:latest \
-            dir /path \
-            --redact \
-            --report-format sarif \
-            --report-path /path/results.sarif \
-            --exit-code 1
+      - name: 🛡️ Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }} # Optional for orgs
 
   # ─────────────────────────────────────────────────────────────
   # JOB 3: CODEQL ADVANCED SECURITY ANALYSIS

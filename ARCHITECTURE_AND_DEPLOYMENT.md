@@ -231,6 +231,9 @@ All security headers are defined in `vercel.json` and applied to every route via
 | 3 | `20260724000000_rls_bookings_payments.sql` | 2026-07-24 | Deny-all RLS write policies on `bookings` (INSERT/UPDATE/DELETE) and `payments` (ALL for anon) |
 | 4 | `20260724000001_rls_nurses_select.sql` | 2026-07-24 | SELECT policy on `nurses` for authenticated users (`profile_id = auth.uid()`) |
 | 5 | `20260725000000_rpc_admin_dashboard_narrow_select.sql` | 2026-07-25 | Replace `SELECT *` with explicit column lists in `admin_dashboard_data` RPC |
+| 6 | `20260726000000_invoices_booking_unique.sql` | 2026-07-26 | Dedupe + unique index: exactly one invoice per booking (race-safe `ON CONFLICT`) |
+| 7 | `20260727000000_rpc_admin_applications_full_columns.sql` | 2026-07-27 | Restore full `applications` columns (mnc_registration, experience, speciality, city, message) in RPC |
+| 8 | `20260801000000_rls_deny_public_inserts.sql` | 2026-08-01 | Drop permissive "Public can submit applications/callbacks" INSERT policies (deny policies OR'ed with them were ineffective); keep `WITH CHECK (false)` denies |
 
 **Migration policy:** Additive only — never edit or reorder existing migrations. New changes are timestamped new files.
 
@@ -260,7 +263,7 @@ All security headers are defined in `vercel.json` and applied to every route via
 | `RESEND_API_KEY` | `lib/email.js` (used by `submit.js`, `webhook-razorpay.js`) | Resend transactional email API key |
 | `SENDER_EMAIL` | `lib/email.js`, `submit.js`, `webhook-razorpay.js` | Verified Resend sender address. Fail-fast required. |
 | `ADMIN_EMAIL` | `lib/email.js`, `submit.js`, `webhook-razorpay.js` | Admin notification recipient |
-| `SENTRY_DSN` | `lib/logger.js` | Sentry error monitoring DSN. Fail-fast required — module load throws when missing. |
+| `SENTRY_DSN` | `lib/logger.js` | Sentry error monitoring DSN. **Optional** — logger degrades gracefully (one WARN, capture no-ops) when absent so telemetry can never take down the app. |
 
 **Secrets committed to repo:** None. `.env`, `.env.local`, and `.vercel/` are all gitignored.
 
