@@ -49,8 +49,8 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: 🚨 NPM Security Audit
-        run: npm audit --audit-level=moderate --json > audit-results.json || true
-        continue-on-error: true
+        run: npm audit --audit-level=moderate --json > audit-results.json
+        continue-on-error: false
 
       - name: 📊 Upload Audit Results
         if: always()

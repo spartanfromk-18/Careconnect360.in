@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { createClient } from '@supabase/supabase-js';
 import { isTokenBlocked } from '../lib/redis-blocklist.js';
-import { makeLogger } from '../lib/logger.js';
+import { makeLogger, captureException } from '../lib/logger.js';
 import { assertAdminAllowlistConfigured, isAdminIpAllowed, setCorsHeaders } from './security-utils.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -95,6 +95,7 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     log({ event: 'HANDLER_ERROR', error: error.message }, 'ERROR');
+    captureException(error, { event: 'HANDLER_ERROR' });
     return res.status(500).json({ error: 'Internal server error.' });
   }
 }

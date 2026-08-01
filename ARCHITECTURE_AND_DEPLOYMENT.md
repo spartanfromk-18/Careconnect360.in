@@ -257,9 +257,10 @@ All security headers are defined in `vercel.json` and applied to every route via
 | `JWT_SECRET` | `admin-login.js`, `admin-verify.js`, `admin-logout.js` | JWT signing key (≥32 chars enforced at startup) |
 | `ADMIN_PASSWORD_HASH` | `admin-login.js` | bcrypt hash of admin password |
 | `ADMIN_ALLOWED_IPS` | `admin-login.js`, `admin-verify.js`, `admin-logout.js` | Comma-separated IP allowlist for admin endpoints |
-| `RESEND_API_KEY` | `submit.js`, `webhook-razorpay.js` | Resend transactional email API key |
-| `ADMIN_EMAIL` | `submit.js`, `webhook-razorpay.js` | Admin notification recipient |
-| `SENTRY_DSN` | `lib/logger.js` | Sentry error monitoring DSN |
+| `RESEND_API_KEY` | `lib/email.js` (used by `submit.js`, `webhook-razorpay.js`) | Resend transactional email API key |
+| `SENDER_EMAIL` | `lib/email.js`, `submit.js`, `webhook-razorpay.js` | Verified Resend sender address. Fail-fast required. |
+| `ADMIN_EMAIL` | `lib/email.js`, `submit.js`, `webhook-razorpay.js` | Admin notification recipient |
+| `SENTRY_DSN` | `lib/logger.js` | Sentry error monitoring DSN. Fail-fast required — module load throws when missing. |
 
 **Secrets committed to repo:** None. `.env`, `.env.local`, and `.vercel/` are all gitignored.
 
@@ -326,7 +327,7 @@ Triggers on push to `main`/`security-and-cleanup`, PRs to `main`, and manual dis
 | **TASK-017** | — | Duplicate root/ vs `public/` HTML tree | Consolidated to single source (root). Deleted all 7 files from `public/`. Simplified build script. Removed 3 now-unnecessary CSP hashes. | `public/*.html` (deleted), `package.json`, `vercel.json` |
 | **TASK-018** | Low | Duplicated `hashPII` in `submit.js` and `security-utils.js` | Deleted local copy in `submit.js`, imported from `security-utils.js` | `api/submit.js` |
 | **TASK-019** | Low | Inline `x-forwarded-for` parsing in `submit.js` bypassed shared validation | Replaced with `SecurityUtils.extractIP()` call. Fixed root cause: changed to `.pop()` to match TASK-009 pattern. | `api/submit.js`, `api/security-utils.js` |
-| **TASK-020** | [~] Pending Product Decision | `getEmailTemplate` handles `refund.processed` but not `refund.created` | Flagged with code comment (product decision pending — `syncToSupabase` already maps both to `refunded` status) | `api/webhook-razorpay.js` |
+| **TASK-020** | [~] Pending Product Decision | `sendRefundAlert` fires on `refund.processed` but not `refund.created` | Flagged with code comment (product decision pending — `syncToSupabase` already maps both to `refunded` status) | `api/webhook-razorpay.js` |
 | **TASK-021** | Low | `invoices.payment_id` FK was never populated | Looks up `payments.id` (uuid) from `payments.payment_id` (Razorpay text ID) during invoice creation | `api/webhook-razorpay.js` |
 
 ---

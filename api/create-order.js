@@ -3,7 +3,7 @@ import Razorpay from 'razorpay';
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import SecurityUtils, { setCorsHeaders } from './security-utils.js';
-import { makeLogger } from '../lib/logger.js';
+import { makeLogger, captureException } from '../lib/logger.js';
 
 const REQUIRED_ENV = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'ALLOWED_ORIGIN'];
 for (const key of REQUIRED_ENV) {
@@ -93,6 +93,7 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     log({ event: 'ORDER_CREATION_FAILED', error: error.message, requestId }, 'ERROR');
+    captureException(error, { event: 'ORDER_CREATION_FAILED', requestId });
     return res.status(500).json({ error: 'Payment initialization failed.', requestId });
   }
 }

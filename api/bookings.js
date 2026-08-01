@@ -8,7 +8,8 @@
  * the database, not in this code.
  */
 import { createClient } from '@supabase/supabase-js';
-import { makeLogger } from '../lib/logger.js';
+import { makeLogger, captureException } from '../lib/logger.js';
+import { setCorsHeaders } from './security-utils.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY; // publishable key, not service role
@@ -19,6 +20,9 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 const log = makeLogger('bookings');
 
 export default async function handler(req, res) {
+  const reqOrigin = req.headers['origin'] || '';
+  setCorsHeaders(res, reqOrigin, { methods: 'GET, OPTIONS', allowHeaders: 'Content-Type, Authorization' });
+  if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
 
   const authHeader = req.headers['authorization'] || '';
@@ -54,6 +58,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, bookings: data });
   } catch (error) {
     log({ event: 'BOOKINGS_FETCH_FAILED', error: error.message }, 'ERROR');
+    captureException(error, { event: 'BOOKINGS_FETCH_FAILED' });
     return res.status(500).json({ error: 'Could not load bookings.' });
   }
 }

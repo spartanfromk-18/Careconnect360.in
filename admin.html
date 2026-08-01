@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard — CareConnect</title>
+    <script
+      src="https://js-de.sentry-cdn.com/8c95014606a2fe163620b886475ee784.min.js"
+      crossorigin="anonymous"
+      defer
+    ></script>
+    <script src="/sentry.js" defer></script>
     <style>
         :root { --brand-blue: #0056b3; --bg-light: #f8f9fa; --border: #dee2e6; }
         body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: var(--bg-light); color: #212529; }
@@ -34,7 +40,7 @@
         <section id="bookings-section">
             <h2>
                 Patient Bookings Log
-                <button class="btn btn-sm" onclick="fetchTableData('bookings')">Refresh</button>
+                <button class="btn btn-sm" data-refresh="bookings">Refresh</button>
             </h2>
             <div style="overflow-x: auto;">
                 <table>
@@ -43,14 +49,14 @@
                 </table>
             </div>
             <div class="load-more-container">
-                <button class="btn hidden" id="load-more-bookings" onclick="loadMore('bookings')">Load More Bookings</button>
+                <button class="btn hidden" id="load-more-bookings">Load More Bookings</button>
             </div>
         </section>
 
         <section id="callbacks-section">
             <h2>
                 Quick Callback Inquiry Log
-                <button class="btn btn-sm" onclick="fetchTableData('callbacks')">Refresh</button>
+                <button class="btn btn-sm" data-refresh="callbacks">Refresh</button>
             </h2>
             <div style="overflow-x: auto;">
                 <table>
@@ -59,14 +65,14 @@
                 </table>
             </div>
             <div class="load-more-container">
-                <button class="btn hidden" id="load-more-callbacks" onclick="loadMore('callbacks')">Load More Callbacks</button>
+                <button class="btn hidden" id="load-more-callbacks">Load More Callbacks</button>
             </div>
         </section>
 
         <section id="applications-section">
             <h2>
                 Caregiver Onboarding Applications Log
-                <button class="btn btn-sm" onclick="fetchTableData('applications')">Refresh</button>
+                <button class="btn btn-sm" data-refresh="applications">Refresh</button>
             </h2>
             <div style="overflow-x: auto;">
                 <table>
@@ -75,14 +81,14 @@
                 </table>
             </div>
             <div class="load-more-container">
-                <button class="btn hidden" id="load-more-applications" onclick="loadMore('applications')">Load More Applications</button>
+                <button class="btn hidden" id="load-more-applications">Load More Applications</button>
             </div>
         </section>
 
         <section id="payments-section">
             <h2>
                 Payment Transactions Log
-                <button class="btn btn-sm" onclick="fetchTableData('payments')">Refresh</button>
+                <button class="btn btn-sm" data-refresh="payments">Refresh</button>
             </h2>
             <div style="overflow-x: auto;">
                 <table>
@@ -91,7 +97,7 @@
                 </table>
             </div>
             <div class="load-more-container">
-                <button class="btn hidden" id="load-more-payments" onclick="loadMore('payments')">Load More Payments</button>
+                <button class="btn hidden" id="load-more-payments">Load More Payments</button>
             </div>
         </section>
     </div>
@@ -165,6 +171,7 @@
         }
 
         async function fetchTableData(type, append = false) {
+            if (!state.token) return;
             const tbodyId = `${type}-tbody`;
             const colSpan = type === 'bookings' ? 7 : type === 'callbacks' ? 4 : type === 'applications' ? 9 : 4;
             
@@ -273,6 +280,11 @@
         fetchTableData('callbacks');
         fetchTableData('applications');
         fetchTableData('payments');
+
+        ['bookings', 'callbacks', 'applications', 'payments'].forEach(type => {
+            document.querySelector(`[data-refresh="${type}"]`)?.addEventListener('click', () => fetchTableData(type));
+            document.getElementById(`load-more-${type}`)?.addEventListener('click', () => loadMore(type));
+        });
     </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { blocklistToken } from '../lib/redis-blocklist.js';
-import { makeLogger } from '../lib/logger.js';
+import { makeLogger, captureException } from '../lib/logger.js';
 import { assertAdminAllowlistConfigured, isAdminIpAllowed, setCorsHeaders } from './security-utils.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -38,6 +38,7 @@ export default async function handler(req, res) {
     log({ event: 'TOKEN_REVOKED', jti: decoded.jti }, 'INFO');
   } catch (err) {
     log({ event: 'REVOCATION_FAILED', jti: decoded.jti, error: err.message }, 'CRITICAL');
+    captureException(err, { event: 'REVOCATION_FAILED', jti: decoded.jti });
     return res.status(503).json({ error: 'Logout could not be confirmed. Please try again.' });
   }
 
