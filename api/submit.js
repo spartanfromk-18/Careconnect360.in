@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
-import { hashPII, extractIP, withTimeout } from './security-utils.js';
+import { hashPII, extractIP, withTimeout, setCorsHeaders } from './security-utils.js';
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { createClient } from '@supabase/supabase-js';
@@ -45,18 +45,6 @@ const sanitize = str => typeof str !== 'string' ? '' : str.replace(/[<>"'&]/g, c
 
 const log = makeLogger('submit');
 
-const ALLOWED_PREVIEW_ORIGINS = (process.env.ALLOWED_PREVIEW_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
-
-const setCors = (res, reqOrigin) => {
-  const isAllowed = reqOrigin === process.env.ALLOWED_ORIGIN || ALLOWED_PREVIEW_ORIGINS.includes(reqOrigin);
-  if (isAllowed && reqOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', reqOrigin);
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Idempotency-Key');
-  res.setHeader('Vary', 'Origin');
-};
-
 // [RESTORED] Resolves a logged-in customer's booking to their profile
 const getBearerToken = req => {
   const authorization = req.headers['authorization'] || '';
@@ -66,7 +54,7 @@ const getBearerToken = req => {
 
 export default async function handler(req, res) {
   const reqOrigin = req.headers['origin'] || '';
-  setCors(res, reqOrigin);
+  setCorsHeaders(res, reqOrigin, { allowHeaders: 'Content-Type' });
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' });
 

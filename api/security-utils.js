@@ -34,7 +34,9 @@ export const assertAdminAllowlistConfigured = () => {
 };
 
 export const isAdminIpAllowed = (headers) => {
-  if (ADMIN_ALLOWED_IPS.includes('*')) return true;
+  if (ADMIN_ALLOWED_IPS.includes('*')) {
+    throw new Error('CRITICAL: ADMIN_ALLOWED_IPS must not contain wildcard "*". Define explicit IPs.');
+  }
   const ip = extractIP(headers);
   if (ip === 'invalid') return false;
   return ADMIN_ALLOWED_IPS.includes(ip);

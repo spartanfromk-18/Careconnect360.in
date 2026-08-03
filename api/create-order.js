@@ -64,7 +64,7 @@ export default async function handler(req, res) {
     if (!amount) return res.status(400).json({ error: 'Payment amount is required', requestId });
 
     const validatedAmount = SecurityUtils.validateAmount(amount);
-    const validatedCurrency = SecurityUtils.validateCurrency(currency);
+    const validatedCurrency = SecurityUtils.validateCurrency(currency || CONFIG.DEFAULT_CURRENCY);
     const finalReceiptId = receiptId || `CC360_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 
     const orderOptions = {
