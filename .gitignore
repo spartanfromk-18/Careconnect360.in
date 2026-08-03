@@ -5,3 +5,4 @@ node_modules/
 .backup/
 apply-hardening.sh
 supabase/.temp/
+.opencode/ship-logs/
