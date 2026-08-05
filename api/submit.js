@@ -1,11 +1,18 @@
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
-import { hashPII, extractIP, withTimeout, setCorsHeaders } from './security-utils.js';
+import jwt from 'jsonwebtoken';
+import { hashPII, extractIP, setCorsHeaders } from './security-utils.js';
+import { withTimeout } from '../lib/timeout.js';
+import { findAvailableNurses } from '../lib/queries.js';
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { createClient } from '@supabase/supabase-js';
 import { makeLogger, captureException } from '../lib/logger.js';
-import { sendBookingConfirmation, sendNewBookingAlert, sendCallbackAlert, sendApplicationReceived } from '../lib/email.js';
+import {
+  sendBookingConfirmation, sendNewBookingAlert,
+  sendCallbackAlert, sendApplicationReceived,
+  sendPatientReceipt, sendNurseDispatchRequest
+} from '../lib/email.js';
 
 const REQUIRED_ENV = [
   'ALLOWED_ORIGIN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN',
@@ -164,23 +171,26 @@ export default async function handler(req, res) {
         return res.status(402).json({ error: 'Invalid currency.' });
       }
 
+      let insertedBookingId;
       try {
         const { data: inserted, error } = await supabase.from('bookings').insert({
           name, phone, email,
           care_type: sanitize(body.care_type || ''),
           service, location: sanitize(body.location || ''),
           scheduled_date: date || null, scheduled_time: sanitize(body.time || ''),
-          notes: message, status: 'confirmed', payment_id,
+          notes: message,
+          // V2: Start as paid_unassigned — transitions to 'assigned' when a nurse accepts
+          status: 'paid_unassigned',
+          payment_id,
           customer_id: customerId, amount_paise: payment.amount,
+          emails_dispatched: false,
           created_at: new Date().toISOString()
         }).select('id').single();
 
         if (error) throw new Error(`Supabase insert failed: ${error.message}`);
+        insertedBookingId = inserted.id;
 
-        // Belt-and-braces for the payment.captured webhook race: if the webhook
-        // already processed this payment BEFORE this booking row existed, it
-        // could not create the invoice. Ensure exactly one invoice exists here
-        // (unique index on invoices.booking_id makes the upsert idempotent).
+        // Belt-and-braces for the payment.captured webhook race
         const { data: payRow } = await supabase.from('payments').select('id').eq('payment_id', payment_id).maybeSingle();
         const { error: invErr } = await supabase.from('invoices').upsert(
           { booking_id: inserted.id, customer_id: customerId, payment_id: payRow?.id || null, subtotal_paise: payment.amount, tax_paise: 0, total_paise: payment.amount, status: 'issued' },
@@ -190,23 +200,99 @@ export default async function handler(req, res) {
       } catch (dbError) {
         log({ event: 'DB_INSERT_FAILED', error: dbError.message, payment_id, ...logContext }, 'CRITICAL');
         captureException(dbError, { event: 'DB_INSERT_FAILED', payment_id, ...logContext });
-        
         try {
           await razorpay.payments.refund(payment_id, { amount: payment.amount });
           log({ event: 'AUTO_REFUND_SUCCESS', payment_id }, 'INFO');
         } catch (refundErr) {
           log({ event: 'AUTO_REFUND_FAILED', payment_id, error: refundErr.message }, 'CRITICAL');
         }
-        
         await redis.del(`payment_used:${payment_id}`);
         return res.status(500).json({ error: 'Booking failed. A full refund has been initiated.' });
       }
 
-      await Promise.allSettled([
-        sendBookingConfirmation({ name, email, phone }),
-        sendNewBookingAlert({ name, phone, service })
+      // ── V2 DUAL-EMAIL DISPATCH ─────────────────────────────────────────────
+      // Idempotency guard: re-check emails_dispatched before dispatching.
+      // Handles Razorpay webhook retries arriving before this request completes.
+      const { data: freshBooking } = await supabase
+        .from('bookings').select('emails_dispatched').eq('id', insertedBookingId).single();
+
+      if (freshBooking?.emails_dispatched === true) {
+        log({ event: 'DISPATCH_SKIPPED_IDEMPOTENT', booking_id: insertedBookingId }, 'INFO');
+        return res.status(200).json({ ok: true });
+      }
+
+      // Locate available nurses — non-blocking if none found (falls back to admin alert)
+      let candidateNurses = [];
+      try {
+        candidateNurses = await findAvailableNurses(supabase, {
+          location: sanitize(body.location || ''),
+          service,
+          date: date || null,
+          time: sanitize(body.time || ''),
+        });
+      } catch (qErr) {
+        log({ event: 'NURSE_LOOKUP_FAILED', error: qErr.message, ...logContext }, 'WARN');
+      }
+
+      const jwtSecret = process.env.JWT_SECRET;
+      const nurseDispatchPromises = jwtSecret
+        ? candidateNurses.map((nurse) => {
+            const nurseName = `${nurse.first_name} ${nurse.last_name || ''}`.trim();
+            // Unique short-lived token per nurse per booking (2h expiry)
+            const actionToken = jwt.sign(
+              { bookingId: insertedBookingId, nurseId: nurse.id },
+              jwtSecret,
+              { expiresIn: '2h', algorithm: 'HS256', issuer: 'careconnect360-dispatch' }
+            );
+            return withTimeout(
+              5000,
+              sendNurseDispatchRequest({
+                nurseEmail: nurse.email,
+                nurseName,
+                bookingId: insertedBookingId,
+                careType: sanitize(body.care_type || ''),
+                service,
+                location: sanitize(body.location || ''),
+                scheduledDate: date || null,
+                scheduledTime: sanitize(body.time || ''),
+                acceptToken: actionToken,
+                declineToken: actionToken,  // Same JWT — action param distinguishes intent
+              }),
+              `sendNurseDispatch:${nurse.id}`
+            );
+          })
+        : [];
+
+      // If no nurses matched, send admin alert as fallback
+      const adminFallback = candidateNurses.length === 0
+        ? withTimeout(5000, sendNewBookingAlert({ name, phone, service }), 'sendNewBookingAlert')
+        : Promise.resolve();
+
+      // Await ALL email dispatches fully before responding — Vercel lifecycle safe
+      const results = await Promise.allSettled([
+        withTimeout(5000, sendPatientReceipt({
+          name, email, phone, service,
+          location: sanitize(body.location || ''),
+          scheduledDate: date || null,
+          scheduledTime: sanitize(body.time || ''),
+        }), 'sendPatientReceipt'),
+        adminFallback,
+        ...nurseDispatchPromises,
       ]);
 
+      // Log any email delivery failures without throwing
+      results.forEach((r, i) => {
+        if (r.status === 'rejected') {
+          log({ event: 'EMAIL_DISPATCH_FAILED', index: i, error: r.reason?.message, ...logContext }, 'WARN');
+        }
+      });
+
+      // Mark emails_dispatched = true to prevent duplicate sends on retries
+      await supabase.from('bookings')
+        .update({ emails_dispatched: true })
+        .eq('id', insertedBookingId);
+
+      log({ event: 'DISPATCH_COMPLETE', booking_id: insertedBookingId, nursesNotified: candidateNurses.length }, 'INFO');
       return res.status(200).json({ ok: true });
     }
 
