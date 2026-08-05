@@ -12,12 +12,17 @@
 import jwt from 'jsonwebtoken';
 import { createClient } from '@supabase/supabase-js';
 import { sendAssignmentConfirmed } from '../lib/email.js';
+import { withTimeout } from '../lib/timeout.js';
 import { makeLogger, captureException } from '../lib/logger.js';
+import { assertJwtSecretConfigured } from './security-utils.js';
 
 const REQUIRED_ENV = ['JWT_SECRET', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SENDER_EMAIL', 'RESEND_API_KEY'];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) throw new Error(`[nurse-action] CRITICAL: Missing ${key}`);
 }
+
+// Unified startup guard: JWT_SECRET must exist and be at least 32 chars.
+assertJwtSecretConfigured();
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const log = makeLogger('nurse-action');
@@ -110,24 +115,18 @@ export default async function handler(req, res) {
     }));
   }
 
-  // ── 3. Atomic Accept: race-condition-safe UPDATE ────────────────────────────
-  // This single UPDATE is atomic: only succeeds when status = 'paid_unassigned'.
-  // If another nurse already accepted, affected row count = 0.
+  // ── 3. Atomic Accept: race-condition-safe claim via RPC ────────────────────
+  // claim_booking is ONE atomic SQL statement:
+  //   UPDATE bookings SET assigned WHERE id = p_booking AND status = 'paid_unassigned'
+  //   AND the nurse is not already assigned/confirmed/in_progress for the same slot.
+  // Concurrent accept clicks: exactly one invocation matches → one winner.
   let acceptedBooking;
   try {
     const { data, error } = await supabase
-      .from('bookings')
-      .update({
-        status: 'assigned',
-        nurse_id: nurseId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', bookingId)
-      .eq('status', 'paid_unassigned')   // ← atomic guard: only one nurse wins
-      .select('id, name, phone, email, location, service, care_type, scheduled_date, scheduled_time')
+      .rpc('claim_booking', { p_booking: bookingId, p_nurse: nurseId })
       .maybeSingle();
 
-    if (error) throw new Error(`Supabase atomic update failed: ${error.message}`);
+    if (error) throw new Error(`claim_booking failed: ${error.message}`);
     acceptedBooking = data;
   } catch (err) {
     log({ event: 'ATOMIC_ASSIGN_ERROR', bookingId, nurseId, error: err.message }, 'ERROR');
@@ -165,7 +164,7 @@ export default async function handler(req, res) {
     const nurseName = `${nurse.first_name} ${nurse.last_name || ''}`.trim();
 
     // PII revealed here — only to the nurse who atomically claimed the job
-    await sendAssignmentConfirmed({
+    await withTimeout(5000, sendAssignmentConfirmed({
       nurseEmail: nurse.email,
       nurseName,
       patientName: acceptedBooking.name,
@@ -175,7 +174,7 @@ export default async function handler(req, res) {
       service: acceptedBooking.service || acceptedBooking.care_type,
       scheduledDate: acceptedBooking.scheduled_date,
       scheduledTime: acceptedBooking.scheduled_time,
-    });
+    }), 'sendAssignmentConfirmed');
 
     log({ event: 'JOB_ASSIGNED', bookingId, nurseId }, 'INFO');
   } catch (err) {

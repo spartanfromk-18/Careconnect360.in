@@ -14,10 +14,11 @@ for (const key of REQUIRED_ENV) {
 
 const CONFIG = {
   RATE_LIMITS: { STANDARD: { requests: 5, window: '5 m' } },
-  AMOUNT_LIMITS: { MIN: 1, MAX: 500000 },
+  // PRICE LOCK: the booking fee is fixed server-side at ₹500 (50000 paise).
+  // The client NEVER gets to influence the order amount or currency.
+  EXPECTED_BOOKING_FEE_PAISE: 50000,
+  EXPECTED_CURRENCY: 'INR',
   IDEMPOTENCY_TTL: 86400,
-  ALLOWED_CURRENCIES: ['INR', 'USD', 'EUR', 'GBP'],
-  DEFAULT_CURRENCY: 'INR'
 };
 
 const razorpay = new Razorpay({
@@ -69,15 +70,24 @@ export default async function handler(req, res) {
     catch { return res.status(400).json({ error: 'Malformed JSON payload', requestId }); }
 
     const { amount, currency, receiptId, customer } = body;
-    if (!amount) return res.status(400).json({ error: 'Payment amount is required', requestId });
 
-    const validatedAmount = SecurityUtils.validateAmount(amount);
-    const validatedCurrency = SecurityUtils.validateCurrency(currency || CONFIG.DEFAULT_CURRENCY);
+    // PRICE LOCK (server-side pricing integrity): the order amount and
+    // currency are hardcoded server-side and NEVER derived from the client.
+    // Payloads attempting to inject a custom price or currency are rejected
+    // outright. A legacy client echoing amount: 500 (rupees = 50000 paise)
+    // remains accepted for backward compatibility.
+    if (amount !== undefined && amount !== null && Number(amount) * 100 !== CONFIG.EXPECTED_BOOKING_FEE_PAISE) {
+      return res.status(400).json({ error: 'Price override rejected: booking fee is fixed at ₹500.', requestId });
+    }
+    if (currency !== undefined && currency !== null && String(currency).toUpperCase() !== CONFIG.EXPECTED_CURRENCY) {
+      return res.status(400).json({ error: 'Currency override rejected: only INR is supported.', requestId });
+    }
+
     const finalReceiptId = receiptId || `CC360_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 
     const orderOptions = {
-      amount: Math.round(validatedAmount * 100),
-      currency: validatedCurrency,
+      amount: CONFIG.EXPECTED_BOOKING_FEE_PAISE,
+      currency: CONFIG.EXPECTED_CURRENCY,
       receipt: finalReceiptId,
       payment_capture: 1,
       notes: {
@@ -89,7 +99,7 @@ export default async function handler(req, res) {
       }
     };
 
-    const order = await withTimeout(razorpay.orders.create(orderOptions), 5000, 'razorpay.orders.create');
+    const order = await withTimeout(5000, razorpay.orders.create(orderOptions), 'razorpay.orders.create');
 
     const responseData = { 
       ok: true, 

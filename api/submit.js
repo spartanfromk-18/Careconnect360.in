@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import jwt from 'jsonwebtoken';
-import { hashPII, extractIP, setCorsHeaders } from './security-utils.js';
+import { hashPII, extractIP, setCorsHeaders, assertJwtSecretConfigured } from './security-utils.js';
 import { withTimeout } from '../lib/timeout.js';
 import { findAvailableNurses } from '../lib/queries.js';
 import { Ratelimit } from "@upstash/ratelimit";
@@ -11,18 +11,21 @@ import { makeLogger, captureException } from '../lib/logger.js';
 import {
   sendBookingConfirmation, sendNewBookingAlert,
   sendCallbackAlert, sendApplicationReceived,
-  sendPatientReceipt, sendNurseDispatchRequest
+  sendPatientReceipt, sendNurseDispatchRequest, scrubbedLocation
 } from '../lib/email.js';
 
 const REQUIRED_ENV = [
   'ALLOWED_ORIGIN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN',
   'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET',
   'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
-  'RESEND_API_KEY', 'ADMIN_EMAIL', 'SENDER_EMAIL'
+  'RESEND_API_KEY', 'ADMIN_EMAIL', 'SENDER_EMAIL', 'JWT_SECRET'
 ];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) throw new Error(`[submit] FATAL: missing ${key}`);
 }
+
+// Unified startup guard: JWT_SECRET must exist and be at least 32 chars.
+assertJwtSecretConfigured();
 
 const EXPECTED_BOOKING_FEE_PAISE = 50000;
 const SUPPORTED_TYPES = ['booking', 'callback', 'application'];
@@ -52,6 +55,22 @@ const sanitize = str => typeof str !== 'string' ? '' : str.replace(/[<>"'&]/g, c
 
 const log = makeLogger('submit');
 
+// Refund pathway for CAPTURED payments that fail post-capture validation
+// (amount/currency mismatch). Money is already with Razorpay at this point,
+// so a full refund is initiated before the request is rejected — the customer
+// is never left holding a captured charge for a booking that will not exist.
+// Deletes the payment_used claim so the payment_id can never be replayed.
+const refundCapturedPayment = async (paymentId, amountPaise, ctx, reason) => {
+  await redis.del(`payment_used:${paymentId}`);
+  try {
+    await withTimeout(5000, razorpay.payments.refund(paymentId, { amount: amountPaise }), 'razorpay.payments.refund');
+    log({ event: 'AUTO_REFUND_SUCCESS', payment_id: paymentId, amount_paise: amountPaise, reason, ...ctx }, 'INFO');
+  } catch (refundErr) {
+    log({ event: 'AUTO_REFUND_FAILED', payment_id: paymentId, amount_paise: amountPaise, reason, error: refundErr.message, ...ctx }, 'CRITICAL');
+    captureException(refundErr, { event: 'AUTO_REFUND_FAILED', payment_id: paymentId, amount_paise: amountPaise, reason, ...ctx });
+  }
+};
+
 // [RESTORED] Resolves a logged-in customer's booking to their profile
 const getBearerToken = req => {
   const authorization = req.headers['authorization'] || '';
@@ -70,7 +89,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid client IP address.' });
   }
   const ipKey = hashPII(rawIp);
-  
+
   // Fail-Open Rate Limiting: If Upstash is down, we do not block patient care
   try {
     const { success } = await limiter.limit(ipKey);
@@ -80,10 +99,10 @@ export default async function handler(req, res) {
   }
 
   let body;
-  try { 
-    body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; 
-  } catch { 
-    return res.status(400).json({ error: 'Malformed JSON payload.' }); 
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  } catch {
+    return res.status(400).json({ error: 'Malformed JSON payload.' });
   }
 
   const { type, payment_id } = body;
@@ -149,8 +168,8 @@ export default async function handler(req, res) {
       }
 
       let payment;
-      try { 
-        payment = await withTimeout(razorpay.payments.fetch(payment_id), 5000, 'razorpay.payments.fetch'); 
+      try {
+        payment = await withTimeout(5000, razorpay.payments.fetch(payment_id), 'razorpay.payments.fetch');
       } catch (err) {
         log({ event: 'PAYMENT_FETCH_FAILED', error: err.message, payment_id, ...logContext }, 'ERROR');
         captureException(err, { event: 'PAYMENT_FETCH_FAILED', payment_id, ...logContext });
@@ -163,12 +182,12 @@ export default async function handler(req, res) {
         return res.status(402).json({ error: 'Payment was not successfully captured.' });
       }
       if (payment.amount !== EXPECTED_BOOKING_FEE_PAISE) {
-        await redis.del(`payment_used:${payment_id}`);
-        return res.status(402).json({ error: 'Payment amount mismatch.' });
+        await refundCapturedPayment(payment_id, payment.amount, logContext, 'amount mismatch');
+        return res.status(402).json({ error: 'Payment amount mismatch. Refund has been initiated.' });
       }
       if (payment.currency !== 'INR') {
-        await redis.del(`payment_used:${payment_id}`);
-        return res.status(402).json({ error: 'Invalid currency.' });
+        await refundCapturedPayment(payment_id, payment.amount, logContext, 'currency mismatch');
+        return res.status(402).json({ error: 'Invalid currency. Refund has been initiated.' });
       }
 
       let insertedBookingId;
@@ -211,12 +230,27 @@ export default async function handler(req, res) {
       }
 
       // ── V2 DUAL-EMAIL DISPATCH ─────────────────────────────────────────────
-      // Idempotency guard: re-check emails_dispatched before dispatching.
-      // Handles Razorpay webhook retries arriving before this request completes.
-      const { data: freshBooking } = await supabase
-        .from('bookings').select('emails_dispatched').eq('id', insertedBookingId).single();
+      // ATOMIC claim-first idempotency: UPDATE ... WHERE emails_dispatched=false.
+      // Exactly one invocation wins the claim; every other invocation (webhook
+      // retry, double-submit) short-circuits with 200 and dispatches nothing.
+      let dispatchClaimed = false;
+      try {
+        const { data: claimRow, error: claimErr } = await supabase
+          .from('bookings')
+          .update({ emails_dispatched: true })
+          .eq('id', insertedBookingId)
+          .eq('emails_dispatched', false)
+          .select('id')
+          .maybeSingle();
+        if (claimErr) throw new Error(`Dispatch claim failed: ${claimErr.message}`);
+        dispatchClaimed = Boolean(claimRow);
+      } catch (claimError) {
+        log({ event: 'DISPATCH_CLAIM_FAILED', error: claimError.message, booking_id: insertedBookingId, ...logContext }, 'ERROR');
+        captureException(claimError, { event: 'DISPATCH_CLAIM_FAILED', booking_id: insertedBookingId, ...logContext });
+        return res.status(500).json({ error: 'Booking created but dispatch could not be claimed.' });
+      }
 
-      if (freshBooking?.emails_dispatched === true) {
+      if (!dispatchClaimed) {
         log({ event: 'DISPATCH_SKIPPED_IDEMPOTENT', booking_id: insertedBookingId }, 'INFO');
         return res.status(200).json({ ok: true });
       }
@@ -234,34 +268,44 @@ export default async function handler(req, res) {
         log({ event: 'NURSE_LOOKUP_FAILED', error: qErr.message, ...logContext }, 'WARN');
       }
 
-      const jwtSecret = process.env.JWT_SECRET;
-      const nurseDispatchPromises = jwtSecret
-        ? candidateNurses.map((nurse) => {
-            const nurseName = `${nurse.first_name} ${nurse.last_name || ''}`.trim();
-            // Unique short-lived token per nurse per booking (2h expiry)
-            const actionToken = jwt.sign(
-              { bookingId: insertedBookingId, nurseId: nurse.id },
-              jwtSecret,
-              { expiresIn: '2h', algorithm: 'HS256', issuer: 'careconnect360-dispatch' }
-            );
-            return withTimeout(
-              5000,
-              sendNurseDispatchRequest({
-                nurseEmail: nurse.email,
-                nurseName,
-                bookingId: insertedBookingId,
-                careType: sanitize(body.care_type || ''),
-                service,
-                location: sanitize(body.location || ''),
-                scheduledDate: date || null,
-                scheduledTime: sanitize(body.time || ''),
-                acceptToken: actionToken,
-                declineToken: actionToken,  // Same JWT — action param distinguishes intent
-              }),
-              `sendNurseDispatch:${nurse.id}`
-            );
-          })
-        : [];
+      // Resolve the invoice number BEFORE dispatching so the patient receipt
+      // renders the Invoice row (invoices.invoice_number is UNIQUE).
+      let invoiceNumber = null;
+      try {
+        const { data: invoiceRow } = await supabase
+          .from('invoices').select('invoice_number').eq('booking_id', insertedBookingId).maybeSingle();
+        invoiceNumber = invoiceRow?.invoice_number || null;
+      } catch (invErr) {
+        log({ event: 'INVOICE_RESOLVE_FAILED', error: invErr.message, booking_id: insertedBookingId, ...logContext }, 'WARN');
+      }
+
+      // Unique short-lived token per nurse per booking (2h expiry).
+      // JWT_SECRET is enforced in REQUIRED_ENV — dispatch can never silently
+      // degrade to zero nurse emails.
+      const nurseDispatchPromises = candidateNurses.map((nurse) => {
+        const nurseName = `${nurse.first_name} ${nurse.last_name || ''}`.trim();
+        const actionToken = jwt.sign(
+          { bookingId: insertedBookingId, nurseId: nurse.id },
+          process.env.JWT_SECRET,
+          { expiresIn: '2h', algorithm: 'HS256', issuer: 'careconnect360-dispatch' }
+        );
+        return withTimeout(
+          5000,
+          sendNurseDispatchRequest({
+            nurseEmail: nurse.email,
+            nurseName,
+            bookingId: insertedBookingId,
+            careType: sanitize(body.care_type || ''),
+            service,
+            location: scrubbedLocation(body.location),  // PIN/zone ONLY — never the street address
+            scheduledDate: date || null,
+            scheduledTime: sanitize(body.time || ''),
+            acceptToken: actionToken,
+            declineToken: actionToken,  // Same JWT — action param distinguishes intent
+          }),
+          `sendNurseDispatch:${nurse.id}`
+        );
+      });
 
       // If no nurses matched, send admin alert as fallback
       const adminFallback = candidateNurses.length === 0
@@ -275,6 +319,7 @@ export default async function handler(req, res) {
           location: sanitize(body.location || ''),
           scheduledDate: date || null,
           scheduledTime: sanitize(body.time || ''),
+          invoiceNumber,
         }), 'sendPatientReceipt'),
         adminFallback,
         ...nurseDispatchPromises,
@@ -286,11 +331,6 @@ export default async function handler(req, res) {
           log({ event: 'EMAIL_DISPATCH_FAILED', index: i, error: r.reason?.message, ...logContext }, 'WARN');
         }
       });
-
-      // Mark emails_dispatched = true to prevent duplicate sends on retries
-      await supabase.from('bookings')
-        .update({ emails_dispatched: true })
-        .eq('id', insertedBookingId);
 
       log({ event: 'DISPATCH_COMPLETE', booking_id: insertedBookingId, nursesNotified: candidateNurses.length }, 'INFO');
       return res.status(200).json({ ok: true });

@@ -33,6 +33,18 @@ export const assertAdminAllowlistConfigured = () => {
   return ADMIN_ALLOWED_IPS;
 };
 
+// Unified startup guard for JWT signing/verification secrets. Every endpoint
+// that signs or verifies JWTs (nurse dispatch, admin sessions) must call this
+// at module load. Weak secrets silently permit token forgery (HS256 brute
+// force), so we fail fast rather than degrade.
+export const assertJwtSecretConfigured = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('CRITICAL: JWT_SECRET must be defined and at least 32 characters long.');
+  }
+  return secret;
+};
+
 export const isAdminIpAllowed = (headers) => {
   if (ADMIN_ALLOWED_IPS.includes('*')) {
     throw new Error('CRITICAL: ADMIN_ALLOWED_IPS must not contain wildcard "*". Define explicit IPs.');
@@ -97,6 +109,7 @@ export default {
   generateRequestId,
   withTimeout,
   assertAdminAllowlistConfigured,
+  assertJwtSecretConfigured,
   isAdminIpAllowed,
   getPreviewOrigins,
   isAllowedOrigin,

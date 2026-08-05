@@ -478,3 +478,64 @@ Careconnect360-main/
 ---
 
 *Generated from codebase analysis on 2026-07-25. Source of truth: `PRD.md` for task status, `progress.txt` for completion history, `supabase/migrations/` for schema, `vercel.json` for headers and deployment config.*
+
+---
+
+## 7. V2 Remediation & Google OAuth — Manual Deployment Steps
+
+> **Last updated:** 2026-08-06. Manual work is limited to: (a) executing SQL in the Supabase SQL Editor, (b) enabling providers in the Supabase dashboard, and (c) setting Vercel environment variables.
+
+### 7.1 Order of Operations
+
+1. **Apply the two new SQL migrations** (in order) in the Supabase SQL Editor:
+   - `supabase/migrations/20260806000000_v2_remediation_nurses_geo_claim.sql`
+     - adds `nurses.city` + `nurses.pincode`
+     - creates atomic `claim_booking(p_booking, p_nurse)` RPC (service-role only)
+     - adds dispatch/conflict indexes
+   - `supabase/migrations/20260807000000_google_auth_profiles.sql`
+     - adds `profiles.email` + `profiles.updated_at`
+     - upgrades `handle_new_user` to an UPSERT (refreshes Google name/avatar/email on every login)
+     - re-creates `on_auth_user_created` trigger and profile self-service RLS policies idempotently
+2. **Backfill nurse geo data** (optional but recommended for dispatch matching):
+   ```sql
+   -- Example: derive a 6-digit pincode from existing nurse applications
+   UPDATE public.nurses n
+   SET pincode = regexp_replace(a.city, '.*\b(\d{6})\b.*', '\1'),
+       city = a.city
+   FROM public.applications a
+   WHERE n.source_application_id = a.id
+     AND n.pincode IS NULL;
+   ```
+
+### 7.2 Supabase Dashboard — Google Provider Setup
+
+1. **Google Cloud Console:** create an OAuth Client ID (Web application).
+   - Authorized redirect URI (exact):
+     `https://<your-project-ref>.supabase.co/auth/v1/callback`
+2. **Supabase Dashboard → Authentication → Providers → Google:**
+   - Enable Google, paste the Client ID + Client Secret, save.
+3. **Supabase Dashboard → Authentication → URL Configuration:**
+   - Site URL: `https://www.careconnect360.in`
+   - Additional Redirect URLs: add `https://www.careconnect360.in/auth-callback.html`
+   - (Add `https://*.vercel.app/auth-callback.html` for preview builds if desired.)
+
+### 7.3 Vercel Environment Variables
+
+No new secrets are required for Google OAuth. Confirm these already exist in **all** environments (Production/Preview/Development):
+
+```
+SUPABASE_URL
+SUPABASE_ANON_KEY        # publishable key — served via GET /api/config
+JWT_SECRET               # now fail-fast required by submit.js AND lib/email.js
+RESEND_API_KEY
+SENDER_EMAIL
+ADMIN_EMAIL
+ALLOWED_ORIGIN
+```
+
+### 7.4 Post-Deploy Smoke Checks
+
+- **Dispatch integrity:** create a test booking → confirm patient receipt contains the `invoice_number`, nurse dispatch email shows `PIN XXXXXX` (never the street address), and the admin receives the fallback alert when no nurses match.
+- **State guard:** with a booking in `paid_unassigned`, fire a `payment.captured` webhook replay → verify the booking **remains** `paid_unassigned` (the `.eq('status','pending_payment')` guard blocks the clobber).
+- **Atomic claim:** have two nurses open the same Accept link → exactly one wins, the loser sees "Job Already Assigned".
+- **Google sign-in:** `/login.html` → "Continue with Google" → `/auth-callback.html` → `/account.html` (bookings render through RLS + `/api/my-bookings`).

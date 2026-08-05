@@ -2,14 +2,13 @@ import jwt from 'jsonwebtoken';
 import { createClient } from '@supabase/supabase-js';
 import { isTokenBlocked } from '../lib/redis-blocklist.js';
 import { makeLogger, captureException } from '../lib/logger.js';
-import { assertAdminAllowlistConfigured, isAdminIpAllowed, setCorsHeaders } from './security-utils.js';
+import { assertAdminAllowlistConfigured, assertJwtSecretConfigured, isAdminIpAllowed, setCorsHeaders } from './security-utils.js';
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = assertJwtSecretConfigured();
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error('CRITICAL: JWT_SECRET must be at least 32 characters.');
 if (!ALLOWED_ORIGIN) throw new Error('CRITICAL: ALLOWED_ORIGIN must be explicitly defined.');
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error('CRITICAL: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be defined.');
 assertAdminAllowlistConfigured();

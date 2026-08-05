@@ -8,6 +8,7 @@ import getRawBody from 'raw-body';
 import { Redis } from "@upstash/redis";
 import { createClient } from '@supabase/supabase-js';
 import { makeLogger, captureException } from '../lib/logger.js';
+import { withTimeout } from '../lib/timeout.js';
 import { sendPaymentFailedAlert, sendRefundAlert } from '../lib/email.js';
 
 const REQUIRED_ENV = ['RAZORPAY_WEBHOOK_SECRET', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'RESEND_API_KEY', 'ADMIN_EMAIL', 'SENDER_EMAIL', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
@@ -74,7 +75,13 @@ async function syncToSupabase(payload, eventType) {
 
     if (eventType === 'payment.captured' && bookingId) {
         const [statusResult, { data: existingInvoice }, { data: paymentRow }] = await Promise.all([
-            supabase.from('bookings').update({ status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', bookingId),
+            // CRITICAL GUARD: only bookings stuck in 'pending_payment' may be
+            // flipped to 'confirmed'. V2 bookings are inserted as
+            // 'paid_unassigned' and MUST keep that state — nurse acceptance
+            // depends on it (claim_booking WHERE status = 'paid_unassigned').
+            // Without this guard, a webhook retry would clobber the state and
+            // permanently block nurse assignment.
+            supabase.from('bookings').update({ status: 'confirmed', updated_at: new Date().toISOString() }).eq('id', bookingId).eq('status', 'pending_payment'),
             supabase.from('invoices').select('id').eq('booking_id', bookingId).maybeSingle(),
             supabase.from('payments').select('id').eq('payment_id', paymentId).maybeSingle()
         ]);
@@ -114,13 +121,19 @@ export default async function handler(req, res) {
     const payment = payload.payload.payment?.entity || {};
     const logData = { eventId, eventType, paymentId: payment.id, orderId: payment.order_id, amount: payment.amount, currency: payment.currency };
 
-    let isDuplicate;
+    // PRE-SYNC DUPLICATE DETECTION: strictly a lookahead. If the key already
+    // exists, the event was fully processed on a prior invocation and we
+    // short-circuit. This NEVER claims the event — the atomic claim happens
+    // only AFTER syncToSupabase succeeds (see POST-SYNC claim below). This
+    // ordering means a Supabase failure cannot consume the event: Razorpay
+    // retries and the sync gets to complete instead of being swallowed.
+    let isDuplicate = false;
     try {
-        const result = await redis.set(`webhook:event:${eventId}`, '1', { nx: true, ex: 86400 });
-        isDuplicate = !result;
+        const seen = await redis.get(`webhook:event:${eventId}`);
+        isDuplicate = Boolean(seen);
     } catch (redisErr) {
-        log({ ...logData, error: 'Redis idempotency check failed, proceeding with caution', message: redisErr.message }, 'WARN');
-        isDuplicate = false; // Fail-open: Supabase upsert onConflict will catch duplicates if Redis is down
+        log({ ...logData, error: 'Redis idempotency lookup failed, proceeding with caution', message: redisErr.message }, 'WARN');
+        isDuplicate = false; // Fail-open: post-sync claim + upsert onConflict keep it safe
     }
 
     if (isDuplicate) {
@@ -142,12 +155,26 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Ledger sync failed, retrying later' });
     }
 
+    // POST-SYNC IDEMPOTENCY CLAIM: claimed only after the ledger is durably
+    // synced. If syncToSupabase threw, we've already returned 500 above and
+    // this key is never written — the Razorpay retry re-runs the full sync
+    // instead of being treated as a duplicate. This is what guarantees a
+    // booking can never be stranded in pending_payment behind an
+    // early-claimed idempotency key.
+    try {
+        await redis.set(`webhook:event:${eventId}`, '1', { nx: true, ex: 86400 });
+    } catch (redisErr) {
+        // Event IS synced at this point; the claim failing only risks a
+        // redundant re-sync on retry, which the upsert onConflict absorbs.
+        log({ ...logData, error: 'Redis idempotency claim failed after successful sync', message: redisErr.message }, 'WARN');
+    }
+
     if (isPaymentFailed) {
-        await Promise.allSettled([sendPaymentFailedAlert({ paymentId: payment.id, errorCode: payment.error_code, errorDesc: payment.error_description })]);
+        await Promise.allSettled([withTimeout(5000, sendPaymentFailedAlert({ paymentId: payment.id, errorCode: payment.error_code, errorDesc: payment.error_description }), 'sendPaymentFailedAlert')]);
         log({ ...logData, message: 'Admin payment-failed alert dispatched' }, 'INFO');
     } else if (isRefundProcessed) {
         const refund = payload.payload.refund?.entity || {};
-        await Promise.allSettled([sendRefundAlert({ paymentId: refund.payment_id || payment.id, amountPaise: refund.amount || 0 })]);
+        await Promise.allSettled([withTimeout(5000, sendRefundAlert({ paymentId: refund.payment_id || payment.id, amountPaise: refund.amount || 0 }), 'sendRefundAlert')]);
         log({ ...logData, message: 'Admin refund alert dispatched' }, 'INFO');
     }
 
