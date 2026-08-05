@@ -3078,8 +3078,9 @@
           message: msg
         })
       })
-      .then(r => r.json())
-      .then(() => {
+      .then(async r => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || `Submission failed (status ${r.status})`);
         btn.classList.remove('btn-loading');
         btn.disabled = false;
         showToast('Request received!', "We'll call you back within 30 minutes.", 'success');
@@ -3087,10 +3088,10 @@
         document.getElementById('cb-phone').value = '';
         document.getElementById('cb-msg').value = '';
       })
-      .catch(() => {
+      .catch(err => {
         btn.classList.remove('btn-loading');
         btn.disabled = false;
-        showToast('Received', 'We got your request. Expect a call shortly.', 'success');
+        showToast('Request failed', err.message || 'Could not submit your request. Please try again or call us.', 'error');
       });
     }
 
@@ -3110,12 +3111,14 @@
           phone
         })
       })
-      .then(() => {
+      .then(async r => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || `Submission failed (status ${r.status})`);
         document.getElementById('strip-phone').value = '';
         showToast('Done!', "We'll call you back within 30 minutes.", 'success');
       })
-      .catch(() => {
-        showToast('Got it!', 'Expect a call from us shortly.', 'success');
+      .catch(err => {
+        showToast('Request failed', err.message || 'Could not submit your number. Please call us instead.', 'error');
       });
     }
 
@@ -3172,18 +3175,18 @@
           message: msg
         })
       })
-      .then(r => r.json())
-      .then(() => {
+      .then(async r => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.error || `Submission failed (status ${r.status})`);
         btn.classList.remove('btn-loading');
         btn.disabled = false;
         document.getElementById('apply-modal').classList.remove('open');
         showToast('Application submitted!', "We'll review it and contact you within 24 hours.", 'success');
       })
-      .catch(() => {
+      .catch(err => {
         btn.classList.remove('btn-loading');
         btn.disabled = false;
-        document.getElementById('apply-modal').classList.remove('open');
-        showToast('Received!', 'We have your application. Expect a call soon.', 'success');
+        showToast('Submission failed', err.message || 'Could not submit your application. Please try again or call us.', 'error');
       });
     }
 

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Account — CareConnect360</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background: #f8f9fa; color: #212529; }
+        header { background: #0056b3; color: white; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+        header h1 { margin: 0; font-size: 1.3rem; }
+        #logout-btn { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.5); padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+        main { max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
+        .card { background: white; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 1.5rem; margin-bottom: 1.5rem; }
+        .avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; margin-right: 1rem; }
+        .profile { display: flex; align-items: center; }
+        .profile h2 { margin: 0 0 0.25rem; font-size: 1.1rem; }
+        .profile p { margin: 0; color: #6c757d; font-size: 0.9rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #e9ecef; }
+        th { color: #6c757d; font-weight: 600; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge.paid_unassigned { background: #fff3cd; color: #856404; }
+        .badge.assigned { background: #d4edda; color: #155724; }
+        .badge.in_progress { background: #cce5ff; color: #004085; }
+        .badge.completed { background: #e2e3e5; color: #383d41; }
+        .badge.cancelled { background: #f8d7da; color: #721c24; }
+        .badge.confirmed { background: #d1ecf1; color: #0c5460; }
+        .badge.pending_payment { background: #e2e3e5; color: #383d41; }
+        .empty { color: #6c757d; text-align: center; padding: 1.5rem; }
+        #error-box { display: none; padding: 12px 14px; background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; border-radius: 4px; margin-bottom: 1rem; font-size: 0.9rem; }
+        #error-box.visible { display: block; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>CareConnect360 — My Account</h1>
+        <button id="logout-btn" type="button">Sign Out</button>
+    </header>
+    <main>
+        <div id="error-box" role="alert"></div>
+        <div class="card">
+            <div class="profile">
+                <img class="avatar" id="profile-avatar" alt="" referrerpolicy="no-referrer">
+                <div>
+                    <h2 id="profile-name">Loading…</h2>
+                    <p id="profile-detail">Checking your session…</p>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <h2 style="margin-top:0;">My Bookings</h2>
+            <div id="bookings-wrap">
+                <p class="empty">Loading your bookings…</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="/auth.js" defer></script>
+    <script src="/account.js" defer></script>
+</body>
+</html>
