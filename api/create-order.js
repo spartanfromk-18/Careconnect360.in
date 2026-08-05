@@ -1,3 +1,5 @@
+// Live Web Patch: Hardened Order Creation Node
+// File: api/create-order.js
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import { Ratelimit } from "@upstash/ratelimit";
@@ -28,7 +30,10 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
-const ratelimit = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(CONFIG.RATE_LIMITS.STANDARD.requests, CONFIG.RATE_LIMITS.STANDARD.window) });
+const ratelimit = new Ratelimit({ 
+  redis, 
+  limiter: Ratelimit.slidingWindow(CONFIG.RATE_LIMITS.STANDARD.requests, CONFIG.RATE_LIMITS.STANDARD.window) 
+});
 
 const log = makeLogger('create-order');
 
@@ -53,8 +58,11 @@ export default async function handler(req, res) {
     }
 
     const { success, reset } = await ratelimit.limit(ipKey);
-
-    if (!success) return res.status(429).json({ error: 'Too many payment requests.', requestId, retryAfter: Math.ceil((reset - Date.now()) / 1000) });
+    if (!success) return res.status(429).json({ 
+      error: 'Too many payment requests.', 
+      requestId, 
+      retryAfter: Math.ceil((reset - Date.now()) / 1000) 
+    });
 
     let body;
     try { body = typeof req.body === 'object' ? req.body : JSON.parse(req.body || '{}'); } 
@@ -72,25 +80,32 @@ export default async function handler(req, res) {
       currency: validatedCurrency,
       receipt: finalReceiptId,
       payment_capture: 1,
-      notes: { requestId, platform: 'CareConnect360' }
+      notes: {
+        requestId,
+        platform: 'CareConnect360',
+        ...(customer?.email ? { customerEmail: customer.email } : {}),
+        ...(customer?.phone ? { customerPhone: customer.phone } : {}),
+        ...(customer?.name ? { name: customer.name } : {})
+      }
     };
-
-    if (customer?.email) orderOptions.customer = { ...(orderOptions.customer || {}), email: customer.email };
-    if (customer?.phone) orderOptions.customer = { ...(orderOptions.customer || {}), contact: customer.phone };
-    if (customer?.name) orderOptions.customer = { ...(orderOptions.customer || {}), name: customer.name };
 
     const order = await withTimeout(razorpay.orders.create(orderOptions), 5000, 'razorpay.orders.create');
 
+    const responseData = { 
+      ok: true, 
+      orderId: order.id, 
+      amount: order.amount, 
+      currency: order.currency, 
+      keyId: process.env.RAZORPAY_KEY_ID, 
+      receiptId: finalReceiptId,
+      requestId 
+    };
+
     if (idempotencyKey) {
-      const responseData = { ok: true, orderId: order.id, amount: order.amount, currency: order.currency, keyId: process.env.RAZORPAY_KEY_ID, receiptId: finalReceiptId };
       await redis.setex(`idempotency:${idempotencyKey}`, CONFIG.IDEMPOTENCY_TTL, JSON.stringify(responseData));
-      return res.status(200).json(responseData);
     }
 
-    return res.status(200).json({
-      ok: true, orderId: order.id, amount: order.amount, currency: order.currency, 
-      keyId: process.env.RAZORPAY_KEY_ID, receiptId: finalReceiptId, requestId
-    });
+    return res.status(200).json(responseData);
   } catch (error) {
     log({ event: 'ORDER_CREATION_FAILED', error: error.message, requestId }, 'ERROR');
     captureException(error, { event: 'ORDER_CREATION_FAILED', requestId });
