@@ -9,7 +9,7 @@ import { Redis } from "@upstash/redis";
 import { createClient } from '@supabase/supabase-js';
 import { makeLogger, captureException } from '../lib/logger.js';
 import {
-  sendBookingConfirmation, sendNewBookingAlert,
+  sendNewBookingAlert,
   sendCallbackAlert, sendApplicationReceived,
   sendPatientReceipt, sendNurseDispatchRequest, scrubbedLocation
 } from '../lib/email.js';
